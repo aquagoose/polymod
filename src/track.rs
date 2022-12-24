@@ -27,7 +27,9 @@ pub struct Track {
     pub samples: Vec<Sample>,
 
     pub tempo: u8,
-    pub speed: u8
+    pub speed: u8,
+
+    pub global_volume: u8
 }
 
 impl Track {
@@ -157,8 +159,8 @@ impl Track {
                     let mut note: u8 = 253;
                     let mut instrument: u8 = 255;
                     let mut volume: u8 = 64;
-                    let mut effect: u8 = 255;
-                    let mut effect_param: u8 = 255;
+                    let mut effect: u8 = 0;
+                    let mut effect_param: u8 = 0;
 
                     if (mask_variable & 1) == 1 {
                         note = reader.read_u8();
@@ -202,18 +204,19 @@ impl Track {
 
                     let mut key = PianoKey::None;
                     let mut octave = 0;
+                    let effect = unsafe { std::mem::transmute(effect) };
 
                     match note {
                         255 => key = PianoKey::NoteOff,
                         254 => key = PianoKey::NoteCut,
                         253 => {},
                         _ => {
-                            key = unsafe { std::mem::transmute(note % 12 + 4) };
+                            key = unsafe { std::mem::transmute(note % 12 + PianoKey::C as u8) };
                             octave = note / 12;
                         }
                     }
 
-                    let note = Note::new(key, octave, instrument, volume, crate::Effect::None, 0);
+                    let note = Note::new(key, octave, instrument, volume, effect, effect_param);
                     println!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note);
                     pattern.set_note(channel as u16, r, note);
 
@@ -225,7 +228,7 @@ impl Track {
             reader.position = curr_pos;
         }
 
-        Ok(Track { patterns: patterns, orders: orders, samples, tempo: initial_tempo, speed: initial_speed  })
+        Ok(Track { patterns: patterns, orders: orders, samples, tempo: initial_tempo, speed: initial_speed, global_volume  })
     }
 }
 

@@ -65,12 +65,14 @@ impl<'a> TrackPlayer<'a> {
                     continue;
                 }
 
+                const MIX_VOLUME: f64 = 48.0 / 255.0;
+
                 if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
                     let sample = &self.track.samples[note.sample as usize];
 
 
                     self.system.play_buffer(self.buffers[note.sample as usize], c, ChannelProperties { 
-                        volume: ((note.volume as u32 * sample.global_volume as u32 * 64 * 128) >> 18) as f64 / 128.0, 
+                        volume: ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME, 
                         speed: calculate_speed(note.key, note.octave, sample.multiplier), 
                         panning: 0.5, 
                         looping: sample.looping, 
@@ -94,7 +96,7 @@ impl<'a> TrackPlayer<'a> {
                     self.current_row = 0;
                     self.current_order += 1;
 
-                    if self.current_order >= self.track.orders.len() {
+                    if self.current_order >= self.track.orders.len() || self.track.orders[self.current_order] == 255 {
                         self.current_order = 0;
                     }
                 }
@@ -114,7 +116,11 @@ pub fn calculate_speed(key: PianoKey, octave: u8, multiplier: f64) -> f64 {
         return 0.0;
     }
 
-    let note = 40 + (key as i32 - 4) + ((octave as i32 - 5) * 12);
+    // 40 is middle C. Therefore, to work out which note corresponds to the given piano key + octace, we first
+    // convert the key to int, subtract the value of middle C (as it is not 0 in the enum), and then add on our octave,
+    // multiplied by 12, as that is how many keys are in one octave. We subtract it by 5 as our "middle c" octave is 5.
+    let note = 40 + (key as i32 - PianoKey::C as i32) + ((octave as i32 - 5) * 12);
+
     let pow_note = f64::powf(2.0, (note as f64 - 49.0) / 12.0);
 
     pow_note * multiplier

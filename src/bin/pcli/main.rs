@@ -21,7 +21,7 @@ fn main() {
     let path = std::env::args().nth(1).unwrap();
     let path = &path[..];
 
-    let track = Track::from_it("/home/ollie/Music/Modules/Created/startip.it").unwrap();
+    let track = Track::from_it(path).unwrap();
 
     let mut player = TrackPlayer::new(&track);
     

@@ -25,7 +25,34 @@ pub enum PianoKey {
 
 #[derive(Debug)]
 pub enum Effect {
-    None
+    None,
+
+    SetSpeed, // Axx
+    PositionJump, // Bxx
+    PatternBreak, // Cxx
+    VolumeSlide, // Dxx
+    PortamentoDown, // Exx
+    PortamentoUp, // Fxx
+    TonePortamento, // Gxx
+    Vibrato, // Hxx
+    Tremor, // Ixx
+    Arpeggio, // Jxx
+    VolumeSlideVibrato, // Kxx
+    VolumeSlideTonePortamento, // Lxx
+    SetChannelVolume, // Mxx
+    ChannelVolumeSlide, // Nxx
+    SampleOffset, // Oxx
+    PanningSlide, // Pxx
+    Retrigger, // Qxx
+    Tremolo, // Rxx
+    Special, // Sxx (this one contains like 20 other commands inside it)
+    Tempo, // Txx
+    FineVibrato, // Uxx
+    SetGlobalVolume, // Vxx
+    GlobalVolumeSlide, // Wxx
+    SetPanning, // Xxx
+    Panbrello, // Yxx
+    MidiMacro // Zxx
 }
 
 #[derive(Debug)]

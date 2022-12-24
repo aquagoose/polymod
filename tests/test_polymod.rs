@@ -34,7 +34,7 @@ fn test_track_player() {
     pattern.set_note(2, 2, Note::new(polymod::PianoKey::G, 5, 0, 64, polymod::Effect::None, 0));
     pattern.set_note(3, 3, Note::new(polymod::PianoKey::C, 6, 0, 64, polymod::Effect::None, 0));
 
-    let track = Track { patterns: vec![pattern], orders: vec![0], samples: vec![sample], tempo: 125, speed: 6 };
+    let track = Track { patterns: vec![pattern], orders: vec![0], samples: vec![sample], tempo: 125, speed: 6, global_volume: 128 };
     let mut player = TrackPlayer::new(&track);
     
     let sdl = sdl2::init().unwrap();
