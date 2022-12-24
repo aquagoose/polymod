@@ -45,6 +45,20 @@ impl Default for Note {
     }
 }
 
+impl Note {
+    pub fn new(key: PianoKey, octave: u8, sample: u8, volume: u8, effect: Effect, effect_param: u8) -> Self {
+        Self {
+            initialized: true,
+            key,
+            octave,
+            sample,
+            volume,
+            effect,
+            effect_param
+        }
+    }
+}
+
 pub struct Arr2D<T: Default> {
     vec: Vec<T>,
     columns: usize,
@@ -62,11 +76,11 @@ impl<T: Default> Arr2D<T> {
     }
 
     pub fn set(&mut self, column: usize, row: usize, value: T) {
-        self.vec[column * self.columns + row] = value;
+        self.vec[row * self.columns + column] = value;
     }
 
     pub fn get(&self, column: usize, row: usize) -> &T {
-        &self.vec[column * self.columns + row]
+        &self.vec[row * self.columns + column]
     }
 
     pub fn columns(&self) -> usize {

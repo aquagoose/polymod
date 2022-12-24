@@ -2,7 +2,7 @@ use mixr::ChannelProperties;
 
 use crate::{track::Track, PianoKey};
 
-const SAMPLE_RATE: i32 = 48000;
+pub const SAMPLE_RATE: i32 = 44100;
 
 pub struct TrackPlayer<'a> {
     track: &'a Track,
@@ -52,7 +52,7 @@ impl<'a> TrackPlayer<'a> {
     pub fn advance(&mut self) -> i16 {
         let pattern = &self.track.patterns[self.track.orders[self.current_order] as usize];
 
-        if self.current_tick == 0 {
+        if self.current_tick == 0 && self.current_half_sample == 0 {
             for c in 0..pattern.channels {
                 let note = pattern.notes.get(c as usize, self.current_row);
                 
@@ -66,7 +66,8 @@ impl<'a> TrackPlayer<'a> {
                         speed: calculate_speed(note.key, note.octave, self.track.samples[note.sample as usize].multiplier), 
                         panning: 0.5, 
                         looping: false, 
-                        interpolation_type: mixr::InterpolationType::Linear }).unwrap();
+                        interpolation_type: mixr::InterpolationType::Linear
+                    }).unwrap();
                 }
             }
         }
@@ -75,6 +76,7 @@ impl<'a> TrackPlayer<'a> {
 
         if self.current_half_sample >= self.half_samples_per_tick {
             self.current_tick += 1;
+            self.current_half_sample = 0;
 
             if self.current_tick >= self.current_speed {
                 self.current_tick = 0;
@@ -96,7 +98,7 @@ impl<'a> TrackPlayer<'a> {
 }
 
 pub fn calculate_half_samples_per_tick(tempo: u8) -> u32 {
-    ((2.5 / tempo as f32) * 2.0 * SAMPLE_RATE as f32) as u32
+    ((2.5 / tempo as f64) * 2.0 * SAMPLE_RATE as f64) as u32
 }
 
 pub fn calculate_speed(key: PianoKey, octave: u8, multiplier: f64) -> f64 {
@@ -104,7 +106,7 @@ pub fn calculate_speed(key: PianoKey, octave: u8, multiplier: f64) -> f64 {
         return 0.0;
     }
 
-    let note = 40 + (key as i32 - 3) + octave as i32 * 12;
+    let note = 40 + (key as i32 - 4) + ((octave - 5) as i32 * 12);
     let pow_note = f64::powf(2.0, (note as f64 - 49.0) / 12.0);
 
     pow_note * multiplier
