@@ -7,6 +7,5 @@ edition = "2021"
 
 [dependencies]
 mixr = { path = "../mixr" }
-
-[dev-dependencies]
 sdl2 = "0.35.2"
+ctrlc = "3.2.4"

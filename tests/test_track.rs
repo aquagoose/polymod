@@ -19,15 +19,7 @@ impl<'a> AudioCallback for Audio<'a> {
 
 #[test]
 pub fn test_track() {
-    let mut track = Track::from_it("/home/ollie/Music/Modules/Created/track 1.it").unwrap();
-    let mut pattern = Pattern::new(64, track.samples.len() as u16);
-    for i in 0..pattern.rows {
-        pattern.set_note(i, i, Note::new(PianoKey::C, 5, i as u8, 64, polymod::Effect::None, 0));
-    }
-    track.patterns.push(pattern);
-    track.orders.push(0);
-    track.tempo = 10;
-    track.speed = 6;
+    let track = Track::from_it("/home/ollie/Music/Modules/Created/track 1.it").unwrap();
 
     let mut player = TrackPlayer::new(&track);
     

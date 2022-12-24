@@ -61,11 +61,13 @@ impl<'a> TrackPlayer<'a> {
                 }
 
                 if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
+                    let sample = &self.track.samples[note.sample as usize];
+
                     self.system.play_buffer(self.buffers[note.sample as usize], c, ChannelProperties { 
-                        volume: note.volume as f64 / 64.0, 
-                        speed: calculate_speed(note.key, note.octave, self.track.samples[note.sample as usize].multiplier), 
+                        volume: (note.volume as f64 / 64.0) * 0.5, 
+                        speed: calculate_speed(note.key, note.octave, sample.multiplier), 
                         panning: 0.5, 
-                        looping: false, 
+                        looping: sample.looping, 
                         interpolation_type: mixr::InterpolationType::Linear
                     }).unwrap();
                 }

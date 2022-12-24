@@ -117,7 +117,7 @@ impl Track {
             reader.position = pointer as usize;
             let s_data = reader.read_bytes(s_length as usize);
 
-            samples.push(Sample::new(s_data, format));
+            samples.push(Sample::new(s_data, format, (s_flags & 16) == 16));
 
             reader.position = curr_pos;
         }
