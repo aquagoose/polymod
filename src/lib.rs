@@ -2,6 +2,7 @@ pub mod track;
 pub mod sample;
 pub mod track_player;
 
+#[derive(PartialEq, Copy, Clone)]
 pub enum PianoKey {
     None,
     NoteCut,
@@ -27,9 +28,12 @@ pub enum Effect {
 }
 
 pub struct Note {
+    pub initialized: bool,
+
     pub key: PianoKey,
     pub octave: u8,
 
+    pub sample: u8,
     pub volume: u8,
     pub effect: Effect,
     pub effect_param: u8
@@ -37,7 +41,7 @@ pub struct Note {
 
 impl Default for Note {
     fn default() -> Self {
-        Self { key: PianoKey::None, octave: 0, volume: 0, effect: Effect::None, effect_param: 0 }
+        Self { initialized: false, key: PianoKey::None, octave: 0, sample: 0, volume: 0, effect: Effect::None, effect_param: 0 }
     }
 }
 

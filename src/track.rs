@@ -1,12 +1,14 @@
 use super::{Arr2D, Note, sample::Sample};
 
 pub struct Pattern {
-    notes: Arr2D<Note>
+    pub notes: Arr2D<Note>,
+    pub channels: u16,
+    pub rows: u16
 }
 
 impl Pattern {
     pub fn new(channels: u16, rows: u16) -> Self {
-        Self { notes: Arr2D::new(channels as usize, rows as usize) }
+        Self { notes: Arr2D::new(channels as usize, rows as usize), channels, rows }
     }
 
     pub fn set_note(&mut self, channel: u16, row: u16, note: Note) {
