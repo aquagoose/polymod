@@ -60,7 +60,7 @@ impl<'a> TrackPlayer<'a> {
                     continue;
                 }
 
-                if note.key != PianoKey::None {
+                if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
                     self.system.play_buffer(self.buffers[note.sample as usize], c, ChannelProperties { 
                         volume: note.volume as f64 / 64.0, 
                         speed: calculate_speed(note.key, note.octave, self.track.samples[note.sample as usize].multiplier), 
@@ -106,7 +106,7 @@ pub fn calculate_speed(key: PianoKey, octave: u8, multiplier: f64) -> f64 {
         return 0.0;
     }
 
-    let note = 40 + (key as i32 - 4) + ((octave - 5) as i32 * 12);
+    let note = 40 + (key as i32 - 4) + ((octave as i32 - 5) * 12);
     let pow_note = f64::powf(2.0, (note as f64 - 49.0) / 12.0);
 
     pow_note * multiplier

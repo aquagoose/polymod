@@ -1,5 +1,7 @@
 use mixr::AudioFormat;
 
+use crate::PianoKey;
+
 use super::{Arr2D, Note, sample::Sample};
 use std::io;
 
@@ -29,7 +31,7 @@ pub struct Track {
 }
 
 impl Track {
-    pub fn from_it(path: &str) -> Result<(), io::Error> {
+    pub fn from_it(path: &str) -> Result<Track, io::Error> {
         let mut reader = mixr::binary_reader::BinaryReader::new(path)?;
         if reader.read_string(4) != String::from("IMPM") {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected \"IMPM\", not found."));
@@ -68,7 +70,7 @@ impl Track {
 
         assert_eq!(reader.position, 0xC0);
 
-        let orders = reader.read_bytes(num_orders as usize);
+        let orders = reader.read_bytes(num_orders as usize).to_vec();
 
         reader.position = (0xC0 + num_orders + num_instruments * 4) as usize;
         
@@ -120,6 +122,118 @@ impl Track {
             reader.position = curr_pos;
         }
 
-        Ok(())
+        reader.position = (0xC0 + num_orders + num_instruments * 4 + num_samples * 4) as usize;
+
+        let mut p_cache = Vec::with_capacity(64);
+        for _ in 0..64 {
+            p_cache.push(PatternCache { mask: 0, note: 0, instrument: 0, volume: 0, effect: 0, eff_param: 0  });
+        }
+
+        let mut patterns = Vec::with_capacity(num_patterns as usize);
+
+        for i in 0..num_patterns {
+            let offset = reader.read_u32();
+            let curr_pos = reader.position;
+
+            reader.position = offset as usize;
+
+            reader.read_bytes(2); // length
+            let rows = reader.read_u16();
+
+            reader.read_bytes(4); // empty data
+
+            let mut pattern = Pattern::new(64, rows);
+
+            for r in 0..rows {
+                let mut c_var = reader.read_u8();
+
+                while c_var != 0 {
+                    let channel = (c_var - 1) & 63;
+                    let mut prev_var = &mut p_cache[channel as usize];
+
+                    let mask_variable = if (c_var & 128) == 128 { reader.read_u8() } else { prev_var.mask };
+                    prev_var.mask = mask_variable;
+
+                    let mut note: u8 = 253;
+                    let mut instrument: u8 = 255;
+                    let mut volume: u8 = 64;
+                    let mut effect: u8 = 255;
+                    let mut effect_param: u8 = 255;
+
+                    if (mask_variable & 1) == 1 {
+                        note = reader.read_u8();
+                        prev_var.note = note;
+                    }
+
+                    if (mask_variable & 2) == 2 {
+                        instrument = reader.read_u8() - 1;
+                        prev_var.instrument = instrument;
+                    }
+
+                    if (mask_variable & 4) == 4 {
+                        volume = reader.read_u8();
+                        prev_var.volume = volume;
+                    }
+
+                    if (mask_variable & 8) == 8 {
+                        effect = reader.read_u8();
+                        effect_param = reader.read_u8();
+
+                        prev_var.effect = effect;
+                        prev_var.eff_param = effect_param;
+                    }
+
+                    if (mask_variable & 16) == 16 {
+                        note = prev_var.note;
+                    }
+
+                    if (mask_variable & 32) == 32 {
+                        instrument = prev_var.instrument;
+                    }
+
+                    if (mask_variable & 64) == 64 {
+                        volume = prev_var.volume;
+                    }
+
+                    if (mask_variable & 128) == 128 {
+                        effect = prev_var.effect;
+                        effect_param = prev_var.eff_param;
+                    }
+
+                    let mut key = PianoKey::None;
+                    let mut octave = 0;
+
+                    match note {
+                        255 => key = PianoKey::NoteOff,
+                        254 => key = PianoKey::NoteCut,
+                        253 => {},
+                        _ => {
+                            key = unsafe { std::mem::transmute(note % 12 + 4) };
+                            octave = note / 12;
+                        }
+                    }
+
+                    let note = Note::new(key, octave, instrument, volume, crate::Effect::None, 0);
+                    println!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note);
+                    pattern.set_note(channel as u16, r, note);
+
+                    c_var = reader.read_u8();
+                }
+            }
+
+            patterns.push(pattern);
+            reader.position = curr_pos;
+        }
+
+        Ok(Track { patterns: patterns, orders: orders, samples, tempo: initial_tempo, speed: initial_speed  })
     }
+}
+
+struct PatternCache {
+    pub mask: u8,
+    pub note: u8,
+    pub instrument: u8,
+    pub volume: u8,
+    pub effect: u8,
+    pub eff_param: u8
 }

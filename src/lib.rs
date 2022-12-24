@@ -2,7 +2,7 @@ pub mod track;
 pub mod sample;
 pub mod track_player;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum PianoKey {
     None,
     NoteCut,
@@ -23,10 +23,12 @@ pub enum PianoKey {
     B
 }
 
+#[derive(Debug)]
 pub enum Effect {
     None
 }
 
+#[derive(Debug)]
 pub struct Note {
     pub initialized: bool,
 
