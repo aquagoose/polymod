@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use polymod::{self, track::{Track, Pattern}, track_player::{TrackPlayer}, Note, PianoKey};
+use polymod::{self, track::{Track}, track_player::{TrackPlayer}};
 use sdl2::audio::{AudioSpecDesired, AudioCallback};
 
 struct Audio<'a> {
@@ -21,7 +21,7 @@ fn main() {
     let path = std::env::args().nth(1).unwrap();
     let path = &path[..];
 
-    let track = Track::from_it("/home/ollie/Music/Modules/Created/track 1.it").unwrap();
+    let track = Track::from_it("/home/ollie/Music/Modules/Created/startip.it").unwrap();
 
     let mut player = TrackPlayer::new(&track);
     

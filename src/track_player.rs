@@ -60,11 +60,17 @@ impl<'a> TrackPlayer<'a> {
                     continue;
                 }
 
+                if note.key == PianoKey::NoteCut {
+                    self.system.stop(c).unwrap();
+                    continue;
+                }
+
                 if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
                     let sample = &self.track.samples[note.sample as usize];
 
+
                     self.system.play_buffer(self.buffers[note.sample as usize], c, ChannelProperties { 
-                        volume: (note.volume as f64 / 64.0) * 0.5, 
+                        volume: ((note.volume as u32 * sample.global_volume as u32 * 64 * 128) >> 18) as f64 / 128.0, 
                         speed: calculate_speed(note.key, note.octave, sample.multiplier), 
                         panning: 0.5, 
                         looping: sample.looping, 
