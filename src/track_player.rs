@@ -1,8 +1,13 @@
 use mixr::ChannelProperties;
 
-use crate::{track::Track, PianoKey, Effect};
+use crate::{track::Track, PianoKey, Effect, sample::Sample};
 
 pub const SAMPLE_RATE: i32 = 48000;
+
+struct TrackChannel<'b> {
+    pub properties: ChannelProperties,
+    pub sample: Option<&'b Sample>
+}
 
 pub struct TrackPlayer<'a> {
     track: &'a Track,
@@ -16,7 +21,9 @@ pub struct TrackPlayer<'a> {
 
     current_order: usize,
     current_row: usize,
-    length: usize
+    length: usize,
+
+    channels: Vec<TrackChannel<'a>>
 }
 
 impl<'a> TrackPlayer<'a> {
@@ -35,6 +42,11 @@ impl<'a> TrackPlayer<'a> {
             buffers.push(buffer);
         }
 
+        let mut channels = Vec::with_capacity(system.num_channels() as usize);
+        for _ in 0..system.num_channels() {
+            channels.push(TrackChannel { properties: ChannelProperties::default(), sample: None  });
+        }
+
         Self { 
             track, 
             system,
@@ -47,7 +59,9 @@ impl<'a> TrackPlayer<'a> {
 
             current_order: 0,
             current_row: 0,
-            length: 0
+            length: 0,
+
+            channels
         }
     }
 
@@ -58,6 +72,7 @@ impl<'a> TrackPlayer<'a> {
             self.length = pattern.rows as usize;
             for c in 0..pattern.channels {
                 let note = pattern.notes.get(c as usize, self.current_row);
+                let mut channel = &mut self.channels[c as usize];
                 
                 if !note.initialized {
                     continue;
@@ -72,16 +87,18 @@ impl<'a> TrackPlayer<'a> {
 
                 if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
                     let sample = &self.track.samples[note.sample as usize];
+                    let properties = &mut channel.properties;
+                    properties.volume = ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                    properties.speed = calculate_speed(note.key, note.octave, sample.multiplier);
+                    properties.looping = sample.looping;
+                    properties.loop_start = sample.loop_start;
+                    properties.loop_end = sample.loop_end;
 
-                    self.system.play_buffer(self.buffers[note.sample as usize], c, ChannelProperties { 
-                        volume: ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME, 
-                        speed: calculate_speed(note.key, note.octave, sample.multiplier), 
-                        panning: 0.5, 
-                        looping: sample.looping, 
-                        interpolation_type: mixr::InterpolationType::Linear,
-                        loop_start: sample.loop_start,
-                        loop_end: sample.loop_end
-                    }).unwrap();
+                    self.system.play_buffer(self.buffers[note.sample as usize], c, channel.properties).unwrap();
+                    channel.sample = Some(sample);
+                } else if let Some(smp) = channel.sample {
+                    channel.properties.volume = ((note.volume as u32 * smp.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                    self.system.set_channel_properties(c, channel.properties).unwrap();
                 }
 
                 match note.effect {
