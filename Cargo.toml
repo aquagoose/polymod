@@ -9,3 +9,4 @@ edition = "2021"
 mixr = { path = "../mixr" }
 sdl2 = "0.35.2"
 ctrlc = "3.2.4"
+clap = { version = "4.0.32", features = ["derive"] }

@@ -2,6 +2,13 @@ use std::time::Duration;
 
 use polymod::{self, track::{Track}, track_player::{TrackPlayer}};
 use sdl2::audio::{AudioSpecDesired, AudioCallback};
+use clap::Parser;
+
+#[derive(Parser)]
+struct Args {
+    path: String,
+    tuning: Option<f64>
+}
 
 struct Audio<'a> {
     player: &'a mut TrackPlayer<'a>
@@ -18,12 +25,14 @@ impl<'a> AudioCallback for Audio<'a> {
 }
 
 fn main() {
-    let path = std::env::args().nth(1).unwrap();
-    let path = &path[..];
+    let args = Args::parse();
+    let path = args.path.as_str();
+    let tuning = args.tuning.unwrap_or(1.0);
 
     let track = Track::from_it(path).unwrap();
 
     let mut player = TrackPlayer::new(&track);
+    player.tuning = tuning;
     
     let sdl = sdl2::init().unwrap();
     let audio = sdl.audio().unwrap();

@@ -23,7 +23,9 @@ pub struct TrackPlayer<'a> {
     current_row: usize,
     length: usize,
 
-    channels: Vec<TrackChannel<'a>>
+    channels: Vec<TrackChannel<'a>>,
+
+    pub tuning: f64
 }
 
 impl<'a> TrackPlayer<'a> {
@@ -61,7 +63,9 @@ impl<'a> TrackPlayer<'a> {
             current_row: 0,
             length: 0,
 
-            channels
+            channels,
+
+            tuning: 1.0
         }
     }
 
@@ -89,7 +93,7 @@ impl<'a> TrackPlayer<'a> {
                     let sample = &self.track.samples[note.sample as usize];
                     let properties = &mut channel.properties;
                     properties.volume = ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
-                    properties.speed = calculate_speed(note.key, note.octave, sample.multiplier);
+                    properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.tuning;
                     properties.looping = sample.looping;
                     properties.loop_start = sample.loop_start;
                     properties.loop_end = sample.loop_end;
