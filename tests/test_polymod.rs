@@ -26,7 +26,7 @@ impl<'a> AudioCallback for Audio<'a> {
 #[test]
 fn test_track_player() {
     let pcm = mixr::loaders::PCM::load_wav("/home/ollie/Music/Samples/piano_middlec.wav").unwrap();
-    let sample = Sample::new(&pcm.data, pcm.format, false, 64);
+    let sample = Sample::new(&pcm.data, pcm.format, false, 0, -1, 64);
     
     let mut pattern = Pattern::new(64, 4);
     pattern.set_note(0, 0, Note::new(polymod::PianoKey::C, 5, 0, 64, polymod::Effect::None, 0));

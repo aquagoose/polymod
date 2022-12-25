@@ -1,8 +1,8 @@
 use mixr::ChannelProperties;
 
-use crate::{track::Track, PianoKey};
+use crate::{track::Track, PianoKey, Effect};
 
-pub const SAMPLE_RATE: i32 = 44100;
+pub const SAMPLE_RATE: i32 = 48000;
 
 pub struct TrackPlayer<'a> {
     track: &'a Track,
@@ -15,7 +15,8 @@ pub struct TrackPlayer<'a> {
     current_speed: u8,
 
     current_order: usize,
-    current_row: usize
+    current_row: usize,
+    length: usize
 }
 
 impl<'a> TrackPlayer<'a> {
@@ -45,7 +46,8 @@ impl<'a> TrackPlayer<'a> {
             current_speed: track.speed,
 
             current_order: 0,
-            current_row: 0
+            current_row: 0,
+            length: 0
         }
     }
 
@@ -53,6 +55,7 @@ impl<'a> TrackPlayer<'a> {
         let pattern = &self.track.patterns[self.track.orders[self.current_order] as usize];
 
         if self.current_tick == 0 && self.current_half_sample == 0 {
+            self.length = pattern.rows as usize;
             for c in 0..pattern.channels {
                 let note = pattern.notes.get(c as usize, self.current_row);
                 
@@ -70,14 +73,24 @@ impl<'a> TrackPlayer<'a> {
                 if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
                     let sample = &self.track.samples[note.sample as usize];
 
-
                     self.system.play_buffer(self.buffers[note.sample as usize], c, ChannelProperties { 
                         volume: ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME, 
                         speed: calculate_speed(note.key, note.octave, sample.multiplier), 
                         panning: 0.5, 
                         looping: sample.looping, 
-                        interpolation_type: mixr::InterpolationType::Linear
+                        interpolation_type: mixr::InterpolationType::Linear,
+                        loop_start: sample.loop_start,
+                        loop_end: sample.loop_end
                     }).unwrap();
+                }
+
+                match note.effect {
+                    Effect::SetSpeed => self.current_speed = note.effect_param,
+                    Effect::PatternBreak => {
+                        // a cheat, but we just set the length to the current row so it's forced to move to the next pattern.
+                        self.length = self.current_row;
+                    }
+                    _ => {}
                 }
             }
         }
@@ -90,9 +103,9 @@ impl<'a> TrackPlayer<'a> {
 
             if self.current_tick >= self.current_speed {
                 self.current_tick = 0;
-                self.current_row += 1;
+                self.current_row += 1;       
 
-                if self.current_row >= pattern.rows as usize {
+                if self.current_row >= self.length {
                     self.current_row = 0;
                     self.current_order += 1;
 

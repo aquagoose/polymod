@@ -67,8 +67,8 @@ impl Track {
 
         reader.read_bytes(12); // stuff we don't need.
 
-        let pans = reader.read_bytes(64);
-        let vols = reader.read_bytes(64);
+        let pans = reader.read_bytes(64).to_vec();
+        let vols = reader.read_bytes(64).to_vec();
 
         assert_eq!(reader.position, 0xC0);
 
@@ -119,7 +119,8 @@ impl Track {
             reader.position = pointer as usize;
             let s_data = reader.read_bytes(s_length as usize);
 
-            samples.push(Sample::new(s_data, format, (s_flags & 16) == 16, s_global));
+            let s_loop = (s_flags & 16) == 16;
+            samples.push(Sample::new(s_data, format, s_loop, s_loop_start as i32, if !s_loop { -1 } else { s_loop_end as i32 }, s_global));
 
             reader.position = curr_pos;
         }

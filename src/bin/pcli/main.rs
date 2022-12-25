@@ -31,7 +31,7 @@ fn main() {
     let desired_spec = AudioSpecDesired {
         freq: Some(polymod::track_player::SAMPLE_RATE),
         channels: Some(2),
-        samples: Some(8192)
+        samples: Some(512)
     };
 
     let device = audio.open_playback(None, &desired_spec, |_| {
