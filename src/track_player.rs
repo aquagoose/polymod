@@ -6,7 +6,8 @@ pub const SAMPLE_RATE: i32 = 48000;
 
 struct TrackChannel<'b> {
     pub properties: ChannelProperties,
-    pub sample: Option<&'b Sample>
+    pub sample: Option<&'b Sample>,
+    pub enabled: bool
 }
 
 pub struct TrackPlayer<'a> {
@@ -45,8 +46,12 @@ impl<'a> TrackPlayer<'a> {
         }
 
         let mut channels = Vec::with_capacity(system.num_channels() as usize);
-        for _ in 0..system.num_channels() {
-            channels.push(TrackChannel { properties: ChannelProperties::default(), sample: None  });
+        for i in 0..system.num_channels() {
+            let mut properties = ChannelProperties::default();
+
+            let pan = track.pans[i as usize];
+            properties.panning = pan as f64 / 64.0;
+            channels.push(TrackChannel { properties, sample: None, enabled: pan >= 128  });
         }
 
         Self { 

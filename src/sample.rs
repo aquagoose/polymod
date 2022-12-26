@@ -17,7 +17,7 @@ impl Sample {
         let multiplier = format.sample_rate as f64 / (crate::track_player::calculate_speed(crate::PianoKey::C, 5, 1.0) * format.sample_rate as f64);
 
         let mut d_vec = data.to_vec();
-        fix_sample(&mut d_vec);
+        fix_sample(&mut d_vec, &format);
 
         Self { 
             data: d_vec, 
@@ -32,8 +32,25 @@ impl Sample {
     }
 }
 
-fn fix_sample(data: &mut Vec<u8>) {
-    for i in 0..data.len() {
-        data[i] = (data[i] as i32 - 128) as u8;
+fn fix_sample(data: &mut Vec<u8>, format: &AudioFormat) {
+    if format.bits_per_sample == 8 {
+        for i in 0..data.len() {
+            data[i] = (data[i] as i32 - 128) as u8;
+        }
+    }
+
+    if format.channels == 2 {
+        let old_data = data.clone();
+        data.clear();
+        let alignment = (format.bits_per_sample / 8) as usize;
+        let mut side = true;
+
+        for i in 0..old_data.len() {
+            if i % alignment == 0 {
+                side = !side;
+            }
+
+            
+        }
     }
 }
