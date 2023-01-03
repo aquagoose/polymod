@@ -159,8 +159,8 @@ impl Track {
                     prev_var.mask = mask_variable;
 
                     let mut note: u8 = 253;
-                    let mut instrument: u8 = 255;
-                    let mut volume: u8 = 64;
+                    let mut instrument: Option<u8> = None;
+                    let mut volume: Option<u8> = None;
                     let mut effect: u8 = 0;
                     let mut effect_param: u8 = 0;
 
@@ -170,13 +170,15 @@ impl Track {
                     }
 
                     if (mask_variable & 2) == 2 {
-                        instrument = reader.read_u8() - 1;
-                        prev_var.instrument = instrument;
+                        let inst = reader.read_u8() - 1;
+                        instrument = Some(inst);
+                        prev_var.instrument = inst;
                     }
 
                     if (mask_variable & 4) == 4 {
-                        volume = reader.read_u8();
-                        prev_var.volume = volume;
+                        let vol = reader.read_u8();
+                        volume = Some(vol);
+                        prev_var.volume = vol;
                     }
 
                     if (mask_variable & 8) == 8 {
@@ -192,11 +194,11 @@ impl Track {
                     }
 
                     if (mask_variable & 32) == 32 {
-                        instrument = prev_var.instrument;
+                        instrument = Some(prev_var.instrument);
                     }
 
                     if (mask_variable & 64) == 64 {
-                        volume = prev_var.volume;
+                        volume = Some(prev_var.volume);
                     }
 
                     if (mask_variable & 128) == 128 {

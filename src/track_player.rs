@@ -8,7 +8,7 @@ struct TrackChannel {
     pub properties: ChannelProperties,
     pub enabled: bool,
 
-    pub current_sample: u8,
+    pub current_sample: Option<u8>,
     pub note_volume: u8
 }
 
@@ -53,7 +53,7 @@ impl<'a> TrackPlayer<'a> {
 
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
-            channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: 0, note_volume: 0 });
+            channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: None, note_volume: 0 });
         }
 
         Self { 
@@ -89,6 +89,47 @@ impl<'a> TrackPlayer<'a> {
                     continue;
                 }
 
+                match note.effect {
+                    Effect::VolumeSlide => {
+                        if self.current_tick == 0 {
+                            continue;
+                        }
+
+                        let mut volume = channel.note_volume as i32;
+
+                        if note.effect_param <= 16 {
+                            volume -= note.effect_param as i32;
+                        }
+
+                        channel.note_volume = volume.clamp(0, 64) as u8;
+
+                        //let sample = &self.track.samples[channel.current_sample as usize];
+                        //channel.properties.volume = ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                        //self.system.set_channel_properties(c, channel.properties).unwrap();
+                        //channel.note_volume = note.volume;
+                    },
+                    Effect::PortamentoDown => todo!(),
+                    Effect::PortamentoUp => todo!(),
+                    Effect::TonePortamento => todo!(),
+                    Effect::Vibrato => todo!(),
+                    Effect::Tremor => todo!(),
+                    Effect::Arpeggio => todo!(),
+                    Effect::VolumeSlideVibrato => todo!(),
+                    Effect::VolumeSlideTonePortamento => todo!(),
+                    Effect::ChannelVolumeSlide => todo!(),
+                    Effect::PanningSlide => todo!(),
+                    Effect::Retrigger => todo!(),
+                    Effect::Tremolo => todo!(),
+                    Effect::Special => todo!(),
+                    Effect::Tempo => todo!(),
+                    Effect::FineVibrato => todo!(),
+                    Effect::GlobalVolumeSlide => todo!(),
+                    Effect::Panbrello => todo!(),
+                    Effect::MidiMacro => todo!(),
+
+                    _ => {}
+                }
+
                 if self.current_tick != 0 {
                     continue;
                 }
@@ -116,24 +157,34 @@ impl<'a> TrackPlayer<'a> {
 
                 const MIX_VOLUME: f64 = 48.0 / 255.0;
 
-                if note.key != PianoKey::None && note.sample < self.buffers.len() as u8 {
-                    let sample = &self.track.samples[note.sample as usize];
-                    let properties = &mut channel.properties;
-                    properties.volume = ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
-                    properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.tuning;
-                    properties.looping = sample.looping;
-                    properties.loop_start = sample.loop_start;
-                    properties.loop_end = sample.loop_end;
+                let mut sample_id = note.sample;
+                if sample_id.is_none() {
+                    sample_id = channel.current_sample;
+                }
 
-                    self.system.play_buffer(self.buffers[note.sample as usize], c, channel.properties).unwrap();
-                    
-                    channel.current_sample = note.sample;
-                    channel.note_volume = note.volume;
-                } else if note.volume != channel.note_volume {
-                    let sample = &self.track.samples[channel.current_sample as usize];
-                    channel.properties.volume = ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                if let Some(sample_id) = sample_id {
+                    if note.key != PianoKey::None && sample_id < self.buffers.len() as u8 {
+                        let sample = &self.track.samples[sample_id as usize];
+                        let properties = &mut channel.properties;
+                        let volume = note.volume.unwrap_or(64);
+                        properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                        properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.tuning;
+                        properties.looping = sample.looping;
+                        properties.loop_start = sample.loop_start;
+                        properties.loop_end = sample.loop_end;
+
+                        self.system.play_buffer(self.buffers[sample_id as usize], c, channel.properties).unwrap();
+                        
+                        channel.current_sample = note.sample;
+                        channel.note_volume = volume;
+                    }
+                }
+
+                if let Some(volume) = note.volume {
+                    let sample = &self.track.samples[channel.current_sample.unwrap() as usize];
+                    channel.properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
                     self.system.set_channel_properties(c, channel.properties).unwrap();
-                    channel.note_volume = note.volume;
+                    channel.note_volume = volume;
                 }
             }
         }

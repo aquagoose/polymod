@@ -62,20 +62,20 @@ pub struct Note {
     pub key: PianoKey,
     pub octave: u8,
 
-    pub sample: u8,
-    pub volume: u8,
+    pub sample: Option<u8>,
+    pub volume: Option<u8>,
     pub effect: Effect,
     pub effect_param: u8
 }
 
 impl Default for Note {
     fn default() -> Self {
-        Self { initialized: false, key: PianoKey::None, octave: 0, sample: 0, volume: 0, effect: Effect::None, effect_param: 0 }
+        Self { initialized: false, key: PianoKey::None, octave: 0, sample: None, volume: None, effect: Effect::None, effect_param: 0 }
     }
 }
 
 impl Note {
-    pub fn new(key: PianoKey, octave: u8, sample: u8, volume: u8, effect: Effect, effect_param: u8) -> Self {
+    pub fn new(key: PianoKey, octave: u8, sample: Option<u8>, volume: Option<u8>, effect: Effect, effect_param: u8) -> Self {
         Self {
             initialized: true,
             key,
