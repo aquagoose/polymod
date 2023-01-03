@@ -23,7 +23,7 @@ pub enum PianoKey {
     B
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Effect {
     None,
 
@@ -55,7 +55,7 @@ pub enum Effect {
     MidiMacro // Zxx
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Note {
     pub initialized: bool,
 

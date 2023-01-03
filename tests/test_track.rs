@@ -19,7 +19,7 @@ impl<'a> AudioCallback for Audio<'a> {
 
 #[test]
 pub fn test_track() {
-    let track = Track::from_it("/home/ollie/Music/Modules/Created/track 1.it").unwrap();
+    let track = Track::from_it("/home/ollie/Music/Modules/a_basketballs_dream.it").unwrap();
 
     let mut player = TrackPlayer::new(&track);
     

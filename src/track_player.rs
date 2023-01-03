@@ -1,13 +1,15 @@
 use mixr::ChannelProperties;
 
-use crate::{track::Track, PianoKey, Effect, sample::Sample};
+use crate::{track::Track, PianoKey, Effect, sample::Sample, Note};
 
 pub const SAMPLE_RATE: i32 = 48000;
 
-struct TrackChannel<'b> {
+struct TrackChannel {
     pub properties: ChannelProperties,
-    pub sample: Option<&'b Sample>,
-    pub enabled: bool
+    pub enabled: bool,
+
+    pub current_sample: u8,
+    pub note_volume: u8
 }
 
 pub struct TrackPlayer<'a> {
@@ -24,7 +26,7 @@ pub struct TrackPlayer<'a> {
     current_row: usize,
     length: usize,
 
-    channels: Vec<TrackChannel<'a>>,
+    channels: Vec<TrackChannel>,
 
     pub tuning: f64
 }
@@ -51,7 +53,7 @@ impl<'a> TrackPlayer<'a> {
 
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
-            channels.push(TrackChannel { properties, sample: None, enabled: pan >= 128  });
+            channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: 0, note_volume: 0 });
         }
 
         Self { 
@@ -77,7 +79,7 @@ impl<'a> TrackPlayer<'a> {
     pub fn advance(&mut self) -> i16 {
         let pattern = &self.track.patterns[self.track.orders[self.current_order] as usize];
 
-        if self.current_tick == 0 && self.current_half_sample == 0 {
+        if self.current_half_sample == 0 {
             self.length = pattern.rows as usize;
             for c in 0..pattern.channels {
                 let note = pattern.notes.get(c as usize, self.current_row);
@@ -87,7 +89,27 @@ impl<'a> TrackPlayer<'a> {
                     continue;
                 }
 
-                if note.key == PianoKey::NoteCut {
+                if self.current_tick != 0 {
+                    continue;
+                }
+
+                // These are all the effects that run per-row instead of per-tick.
+                match note.effect {
+                    Effect::SetSpeed => self.current_speed = note.effect_param,
+                    Effect::PositionJump => todo!(),
+                    Effect::PatternBreak => todo!(),
+                    Effect::SetChannelVolume => todo!(),
+                    Effect::SampleOffset => todo!(),
+                    Effect::Special => todo!(),
+                    Effect::Tempo => todo!(),
+                    Effect::SetGlobalVolume => todo!(),
+                    Effect::SetPanning => todo!(),
+                    Effect::MidiMacro => todo!(),
+
+                    _ => {}
+                }
+
+                if note.key == PianoKey::NoteCut || note.key == PianoKey::NoteOff || note.key == PianoKey::NoteFade {
                     self.system.stop(c).unwrap();
                     continue;
                 }
@@ -104,19 +126,14 @@ impl<'a> TrackPlayer<'a> {
                     properties.loop_end = sample.loop_end;
 
                     self.system.play_buffer(self.buffers[note.sample as usize], c, channel.properties).unwrap();
-                    channel.sample = Some(sample);
-                } else if let Some(smp) = channel.sample {
-                    channel.properties.volume = ((note.volume as u32 * smp.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                    
+                    channel.current_sample = note.sample;
+                    channel.note_volume = note.volume;
+                } else if note.volume != channel.note_volume {
+                    let sample = &self.track.samples[channel.current_sample as usize];
+                    channel.properties.volume = ((note.volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
                     self.system.set_channel_properties(c, channel.properties).unwrap();
-                }
-
-                match note.effect {
-                    Effect::SetSpeed => self.current_speed = note.effect_param,
-                    Effect::PatternBreak => {
-                        // a cheat, but we just set the length to the current row so it's forced to move to the next pattern.
-                        self.length = self.current_row;
-                    }
-                    _ => {}
+                    channel.note_volume = note.volume;
                 }
             }
         }
