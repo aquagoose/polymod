@@ -42,15 +42,28 @@ fn fix_sample(data: &mut Vec<u8>, format: &AudioFormat) {
     if format.channels == 2 {
         let old_data = data.clone();
         data.clear();
-        let alignment = (format.bits_per_sample / 8) as usize;
-        let mut side = true;
 
-        for i in 0..old_data.len() {
-            if i % alignment == 0 {
-                side = !side;
+        // i did want to do this the nice math way but it didnt work so screw it i'll just use if statements
+        let mut left_i = 0;
+        let mut right_i = old_data.len() / 2;
+        let mut is_right = false;
+
+        println!("{}, {right_i}", old_data.len());
+
+        let alignment = format.bits_per_sample / 8;
+
+        while data.len() != old_data.len() {
+            for _ in 0..alignment {
+                if is_right {
+                    data.push(old_data[right_i]);
+                    right_i += 1;
+                } else {
+                    data.push(old_data[left_i]);
+                    left_i += 1;
+                }
             }
 
-            
+            is_right = !is_right;
         }
     }
 }

@@ -112,10 +112,11 @@ impl Track {
             let s_cvt = reader.read_u8(); // convert, unused *yet* but will be later.
             reader.read_u8(); // default pan, don't think it needs to be used.
 
-            let s_length = reader.read_u32();
+            let s_length = reader.read_u32() * format.channels as u32 * (format.bits_per_sample / 8) as u32;
             let s_loop_start = reader.read_u32();
             let s_loop_end = reader.read_u32();
             format.sample_rate = reader.read_i32();
+            println!("{:?}", format);
 
             reader.read_bytes(8); // ignoring sustain stuff for now
 

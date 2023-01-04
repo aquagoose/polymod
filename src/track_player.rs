@@ -94,9 +94,9 @@ impl<'a> TrackPlayer<'a> {
             for c in 0..pattern.channels {
                 let mut channel = &mut self.channels[c as usize];
 
-                if !channel.enabled {
-                    continue;
-                }
+                //if !channel.enabled {
+                //    continue;
+               // }
 
                 let note = pattern.notes.get(c as usize, self.current_row);
                 
