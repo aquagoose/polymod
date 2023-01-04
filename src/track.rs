@@ -116,7 +116,6 @@ impl Track {
             let s_loop_start = reader.read_u32();
             let s_loop_end = reader.read_u32();
             format.sample_rate = reader.read_i32();
-            println!("{:?}", format);
 
             reader.read_bytes(8); // ignoring sustain stuff for now
 
@@ -142,6 +141,10 @@ impl Track {
 
         for i in 0..num_patterns {
             let offset = reader.read_u32();
+            if offset == 0 {
+                patterns.push(Pattern::new(64, 64));
+                continue;
+            }
             let curr_pos = reader.position;
 
             reader.position = offset as usize;
