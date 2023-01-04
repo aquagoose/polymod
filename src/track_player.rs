@@ -59,6 +59,7 @@ impl<'a> TrackPlayer<'a> {
 
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
+            // A pan value of >= 128 means the channel is disabled and will not be played.
             channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: None, note_volume: 0, vol_memory: 0 });
         }
 
@@ -76,7 +77,7 @@ impl<'a> TrackPlayer<'a> {
             current_row: 0,
             
             next_row: 0,
-            next_order: 1,
+            next_order: 0,
 
             should_jump: false,
 
@@ -91,8 +92,13 @@ impl<'a> TrackPlayer<'a> {
 
         if self.current_half_sample == 0 {
             for c in 0..pattern.channels {
-                let note = pattern.notes.get(c as usize, self.current_row);
                 let mut channel = &mut self.channels[c as usize];
+
+                if !channel.enabled {
+                    continue;
+                }
+
+                let note = pattern.notes.get(c as usize, self.current_row);
                 
                 if !note.initialized {
                     continue;
@@ -156,7 +162,12 @@ impl<'a> TrackPlayer<'a> {
                         let vol_param = if note.effect_param == 0 { channel.vol_memory } else { note.effect_param };
                         channel.vol_memory = vol_param;
 
-                        if self.current_tick == 0 {
+                        // Handle DFy and DxF, if 'F' is set then the volume slide only occurs on the first tick.
+                        if (vol_param < 0xF0 && (vol_param & 0xF) != 0xF) && self.current_tick != 0 {
+                            continue;
+                        }
+                        // Volume slide occurs on every tick except the first, **unless** it is D0F.
+                        else if self.current_tick == 0 && vol_param != 15 {
                             continue;
                         }
 
@@ -168,12 +179,15 @@ impl<'a> TrackPlayer<'a> {
 
                         let mut volume = channel.note_volume as i32;
 
+                        // D0y decreases volume by y units.
+                        // Dx0 increases volume by x units.
                         if vol_param < 16 {
                             volume -= vol_param as i32;
                         } else {
                             volume += vol_param as i32 / 16;
                         }
 
+                        // Volume cannot exceed 64.
                         channel.note_volume = volume.clamp(0, 64) as u8;
 
                         let sample = &self.track.samples[sample_id as usize];

@@ -2,6 +2,14 @@ pub mod track;
 pub mod sample;
 pub mod track_player;
 
+pub enum ModuleType {
+    PMM,
+    IT,
+    XM,
+    S3M,
+    MOD
+}
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum PianoKey {
     None,

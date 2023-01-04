@@ -1,6 +1,6 @@
 use mixr::AudioFormat;
 
-use crate::PianoKey;
+use crate::{PianoKey, ModuleType};
 
 use super::{Arr2D, Note, sample::Sample};
 use std::io;
@@ -22,6 +22,8 @@ impl Pattern {
 }
 
 pub struct Track {
+    pub mod_type: ModuleType,
+
     pub patterns: Vec<Pattern>,
     pub orders: Vec<u8>,
     pub samples: Vec<Sample>,
@@ -31,11 +33,11 @@ pub struct Track {
 
     pub global_volume: u8,
     pub pans: Vec<u8>,
-
     pub mix_volume: u8
 }
 
 impl Track {
+    /// Load the given Impulse Tracker file (.IT)
     pub fn from_it(path: &str) -> Result<Track, io::Error> {
         let mut reader = mixr::binary_reader::BinaryReader::new(path)?;
         if reader.read_string(4) != String::from("IMPM") {
@@ -234,7 +236,20 @@ impl Track {
             reader.position = curr_pos;
         }
 
-        Ok(Track { patterns: patterns, orders: orders, samples, tempo: initial_tempo, speed: initial_speed, global_volume, pans, mix_volume  })
+        Ok(Track { 
+            mod_type: ModuleType::IT,
+            
+            patterns,
+            orders,
+            samples,
+
+            tempo: initial_tempo,
+            speed: initial_speed,
+
+            global_volume,
+            pans,
+            mix_volume
+        })
     }
 }
 
