@@ -5,13 +5,16 @@ use crate::{track::Track, PianoKey, Effect, sample::Sample, Note};
 pub const SAMPLE_RATE: i32 = 48000;
 
 struct TrackChannel {
-    pub properties: ChannelProperties,
-    pub enabled: bool,
+    properties: ChannelProperties,
+    enabled: bool,
 
-    pub current_sample: Option<u8>,
-    pub note_volume: u8,
+    current_sample: Option<u8>,
+    note_volume: u8,
 
-    pub vol_memory: u8
+    vol_memory: u8,
+
+    offset_memory: u8,
+    high_offset: usize
 }
 
 pub struct TrackPlayer<'a> {
@@ -60,7 +63,17 @@ impl<'a> TrackPlayer<'a> {
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
             // A pan value of >= 128 means the channel is disabled and will not be played.
-            channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: None, note_volume: 0, vol_memory: 0 });
+            channels.push(TrackChannel {
+                properties,
+                enabled: pan >= 128,
+                current_sample: None,
+                note_volume: 0,
+
+                vol_memory: 0,
+
+                offset_memory: 0,
+                high_offset: 0
+            });
         }
 
         Self { 
@@ -203,13 +216,28 @@ impl<'a> TrackPlayer<'a> {
                     Effect::VolumeSlideVibrato => todo!(),
                     Effect::VolumeSlideTonePortamento => todo!(),
                     Effect::SetChannelVolume => todo!(),
-                    Effect::ChannelVolumeSlide => todo!(),
-                    Effect::SampleOffset => todo!(),
-                    Effect::PanningSlide => todo!(),
+                    Effect::ChannelVolumeSlide => todo!(),*/
+                    Effect::SampleOffset => {
+                        if self.current_tick == 0 {
+                            let offset = if note.effect_param == 0 { channel.offset_memory } else { note.effect_param };
+                            channel.offset_memory = offset;
+
+                            if note.key != PianoKey::None {
+                                self.system.seek_to_sample(c, offset as usize * 256 + channel.high_offset).unwrap();
+                            }
+                        }
+                    },
+                    /*Effect::PanningSlide => todo!(),
                     Effect::Retrigger => todo!(),
-                    Effect::Tremolo => todo!(),
-                    Effect::Special => todo!(),
-                    Effect::Tempo => todo!(),
+                    Effect::Tremolo => todo!(),*/
+                    Effect::Special => {
+                        let param = note.effect_param;
+
+                        if param >= 0xA0 && param <= 0xAF {
+                            channel.high_offset = (param & 0xF) as usize * 65536;
+                        }
+                    },
+                    /*Effect::Tempo => todo!(),
                     Effect::FineVibrato => todo!(),
                     Effect::SetGlobalVolume => todo!(),
                     Effect::GlobalVolumeSlide => todo!(),
