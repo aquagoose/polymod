@@ -31,7 +31,15 @@ fn main() {
     let path = args.path.as_str();
     let tuning = args.tuning;
 
-    let track = Track::from_it(path).unwrap();
+    let track = Track::from_it(path);
+    if let Some(err) = track.as_ref().err() {
+        if err.kind() == std::io::ErrorKind::NotFound {
+            println!("The path \"{path}\" was not found.");
+            std::process::exit(1);
+        }
+    }
+
+    let track = track.unwrap();
 
     let mut player = TrackPlayer::new(&track);
     player.tuning = tuning;

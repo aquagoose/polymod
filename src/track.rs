@@ -43,7 +43,7 @@ impl Track {
         }
 
         let title = reader.read_string(26);
-        println!("Loading \"{}\"...", title);
+        crate::log(format!("Loading \"{}\"...", title));
 
         reader.read_bytes(2); // pattern highlight
         
@@ -66,7 +66,7 @@ impl Track {
         let initial_speed = reader.read_u8();
         let initial_tempo = reader.read_u8();
 
-        println!("gv: {global_volume}, mv: {mix_volume}, spd: {initial_speed}, tmp: {initial_tempo}");
+        crate::log(format!("gv: {global_volume}, mv: {mix_volume}, spd: {initial_speed}, tmp: {initial_tempo}"));
 
         reader.read_bytes(12); // stuff we don't need.
 
@@ -105,7 +105,7 @@ impl Track {
             reader.read_u8(); // default volume, not needed for playback.
 
             let s_name = reader.read_string(26);
-            println!("Loading {s_name} ({dos_name})...");
+            crate::log(format!("Loading {s_name} ({dos_name})..."));
 
             let s_cvt = reader.read_u8(); // convert, unused *yet* but will be later.
             reader.read_u8(); // default pan, don't think it needs to be used.
@@ -223,7 +223,7 @@ impl Track {
                     }
 
                     let note = Note::new(key, octave, instrument, volume, effect, effect_param);
-                    println!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note);
+                    crate::log(format!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note));
                     pattern.set_note(channel as u16, r, note);
 
                     c_var = reader.read_u8();

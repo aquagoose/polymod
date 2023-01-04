@@ -120,3 +120,13 @@ impl<T: Default> Arr2D<T> {
         self.rows
     }
 }
+
+#[inline(always)]
+#[cfg(debug_assertions)]
+pub fn log(text: String) {
+    println!("{text}");
+}
+
+#[inline(always)]
+#[cfg(not(debug_assertions))]
+pub fn log(text: String) {}
