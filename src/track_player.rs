@@ -9,7 +9,9 @@ struct TrackChannel {
     pub enabled: bool,
 
     pub current_sample: Option<u8>,
-    pub note_volume: u8
+    pub note_volume: u8,
+
+    pub vol_memory: u8
 }
 
 pub struct TrackPlayer<'a> {
@@ -24,7 +26,11 @@ pub struct TrackPlayer<'a> {
 
     current_order: usize,
     current_row: usize,
-    length: usize,
+
+    next_row: usize,
+    next_order: usize,
+
+    should_jump: bool,
 
     channels: Vec<TrackChannel>,
 
@@ -53,7 +59,7 @@ impl<'a> TrackPlayer<'a> {
 
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
-            channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: None, note_volume: 0 });
+            channels.push(TrackChannel { properties, enabled: pan >= 128, current_sample: None, note_volume: 0, vol_memory: 0 });
         }
 
         Self { 
@@ -68,7 +74,11 @@ impl<'a> TrackPlayer<'a> {
 
             current_order: 0,
             current_row: 0,
-            length: 0,
+            
+            next_row: 0,
+            next_order: 1,
+
+            should_jump: false,
 
             channels,
 
@@ -80,7 +90,6 @@ impl<'a> TrackPlayer<'a> {
         let pattern = &self.track.patterns[self.track.orders[self.current_order] as usize];
 
         if self.current_half_sample == 0 {
-            self.length = pattern.rows as usize;
             for c in 0..pattern.channels {
                 let note = pattern.notes.get(c as usize, self.current_row);
                 let mut channel = &mut self.channels[c as usize];
@@ -133,9 +142,20 @@ impl<'a> TrackPlayer<'a> {
                 match note.effect {
                     Effect::None => {},
                     Effect::SetSpeed => if self.current_tick == 0 { self.current_speed = note.effect_param },
-                    Effect::PositionJump => todo!(),
-                    Effect::PatternBreak => todo!(),
+                    Effect::PositionJump => {
+                        self.next_row = 0;
+                        self.next_order = note.effect_param as usize;
+                        self.should_jump = true;
+                    },
+                    Effect::PatternBreak => {
+                        self.next_order = self.current_order + 1;
+                        self.next_row = note.effect_param as usize;
+                        self.should_jump = true;
+                    },
                     Effect::VolumeSlide => {
+                        let vol_param = if note.effect_param == 0 { channel.vol_memory } else { note.effect_param };
+                        channel.vol_memory = vol_param;
+
                         if self.current_tick == 0 {
                             continue;
                         }
@@ -148,10 +168,10 @@ impl<'a> TrackPlayer<'a> {
 
                         let mut volume = channel.note_volume as i32;
 
-                        if note.effect_param < 16 {
-                            volume -= note.effect_param as i32;
+                        if vol_param < 16 {
+                            volume -= vol_param as i32;
                         } else {
-                            volume += note.effect_param as i32 / 16;
+                            volume += vol_param as i32 / 16;
                         }
 
                         channel.note_volume = volume.clamp(0, 64) as u8;
@@ -160,7 +180,7 @@ impl<'a> TrackPlayer<'a> {
                         channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
-                    Effect::PortamentoDown => todo!(),
+                    /*Effect::PortamentoDown => todo!(),
                     Effect::PortamentoUp => todo!(),
                     Effect::TonePortamento => todo!(),
                     Effect::Vibrato => todo!(),
@@ -181,7 +201,8 @@ impl<'a> TrackPlayer<'a> {
                     Effect::GlobalVolumeSlide => todo!(),
                     Effect::SetPanning => todo!(),
                     Effect::Panbrello => todo!(),
-                    Effect::MidiMacro => todo!(),
+                    Effect::MidiMacro => todo!(),*/
+                    _ => {}
                 }
             }
         }
@@ -194,9 +215,15 @@ impl<'a> TrackPlayer<'a> {
 
             if self.current_tick >= self.current_speed {
                 self.current_tick = 0;
-                self.current_row += 1;       
+                self.current_row += 1;     
+                
+                if self.should_jump {
+                    self.should_jump = false;
+                    self.current_row = self.next_row;
+                    self.current_order = self.next_order;
+                }
 
-                if self.current_row >= self.length {
+                if self.current_row >= pattern.rows as usize {
                     self.current_row = 0;
                     self.current_order += 1;
 
