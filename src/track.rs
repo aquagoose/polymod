@@ -30,7 +30,9 @@ pub struct Track {
     pub speed: u8,
 
     pub global_volume: u8,
-    pub pans: Vec<u8>
+    pub pans: Vec<u8>,
+
+    pub mix_volume: u8
 }
 
 impl Track {
@@ -232,7 +234,7 @@ impl Track {
             reader.position = curr_pos;
         }
 
-        Ok(Track { patterns: patterns, orders: orders, samples, tempo: initial_tempo, speed: initial_speed, global_volume, pans  })
+        Ok(Track { patterns: patterns, orders: orders, samples, tempo: initial_tempo, speed: initial_speed, global_volume, pans, mix_volume  })
     }
 }
 

@@ -7,7 +7,9 @@ use clap::Parser;
 #[derive(Parser)]
 struct Args {
     path: String,
-    tuning: Option<f64>
+
+    #[arg(short, long, default_value_t = 1.0)]
+    tuning: f64
 }
 
 struct Audio<'a> {
@@ -27,7 +29,7 @@ impl<'a> AudioCallback for Audio<'a> {
 fn main() {
     let args = Args::parse();
     let path = args.path.as_str();
-    let tuning = args.tuning.unwrap_or(1.0);
+    let tuning = args.tuning;
 
     let track = Track::from_it(path).unwrap();
 

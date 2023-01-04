@@ -98,8 +98,6 @@ impl<'a> TrackPlayer<'a> {
                     continue;
                 }
 
-                const MIX_VOLUME: f64 = 48.0 / 255.0;
-
                 if self.current_tick == 0 {
                     if note.key == PianoKey::NoteCut || note.key == PianoKey::NoteOff || note.key == PianoKey::NoteFade {
                         channel.current_sample = None;
@@ -118,7 +116,7 @@ impl<'a> TrackPlayer<'a> {
                             let sample = &self.track.samples[sample_id as usize];
                             let properties = &mut channel.properties;
                             let volume = note.volume.unwrap_or(64);
-                            properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                            properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                             properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.tuning;
                             properties.looping = sample.looping;
                             properties.loop_start = sample.loop_start;
@@ -133,7 +131,7 @@ impl<'a> TrackPlayer<'a> {
 
                     if let (Some(volume), Some(sample)) = (note.volume, channel.current_sample) {
                         let sample = &self.track.samples[sample as usize];
-                        channel.properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                        channel.properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                         channel.note_volume = volume;
                     }
@@ -153,6 +151,8 @@ impl<'a> TrackPlayer<'a> {
                         self.should_jump = true;
                     },
                     Effect::VolumeSlide => {
+                        // If the note parameter is 0, we just fetch the last one stored in memory.
+                        // If the last parameter is also 0 then nothing happens.
                         let vol_param = if note.effect_param == 0 { channel.vol_memory } else { note.effect_param };
                         channel.vol_memory = vol_param;
 
@@ -177,7 +177,7 @@ impl<'a> TrackPlayer<'a> {
                         channel.note_volume = volume.clamp(0, 64) as u8;
 
                         let sample = &self.track.samples[sample_id as usize];
-                        channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * MIX_VOLUME;
+                        channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
                     /*Effect::PortamentoDown => todo!(),
