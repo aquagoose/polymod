@@ -134,7 +134,7 @@ impl<'a> TrackPlayer<'a> {
                         if note.key != PianoKey::None && sample_id < self.buffers.len() as u8 {
                             let sample = &self.track.samples[sample_id as usize];
                             let properties = &mut channel.properties;
-                            let volume = note.volume.unwrap_or(64);
+                            let volume = note.volume.unwrap_or(sample.default_volume);
                             properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                             properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.tuning;
                             properties.looping = sample.looping;

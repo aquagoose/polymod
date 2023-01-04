@@ -104,7 +104,7 @@ impl Track {
             format.channels = if (s_flags & 4) == 4 { 2 } else { 1 };
             // todo, loops and stuff
 
-            reader.read_u8(); // default volume, not needed for playback.
+            let s_def_vol = reader.read_u8(); // default volume
 
             let s_name = reader.read_string(26);
             crate::log(format!("Loading {s_name} ({dos_name})..."));
@@ -125,7 +125,7 @@ impl Track {
             let s_data = reader.read_bytes(s_length as usize);
 
             let s_loop = (s_flags & 16) == 16;
-            samples.push(Sample::new(s_data, format, s_loop, s_loop_start as i32, if !s_loop { -1 } else { s_loop_end as i32 }, s_global));
+            samples.push(Sample::new(s_data, format, s_loop, s_loop_start as i32, if !s_loop { -1 } else { s_loop_end as i32 }, s_global, s_def_vol));
 
             reader.position = curr_pos;
         }

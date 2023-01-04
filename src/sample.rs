@@ -9,11 +9,12 @@ pub struct Sample {
     pub loop_start: i32,
     pub loop_end: i32,
 
-    pub global_volume: u8
+    pub global_volume: u8,
+    pub default_volume: u8
 }
 
 impl Sample {
-    pub fn new(data: &[u8], format: AudioFormat, looping: bool, loop_start: i32, loop_end: i32, global_volume: u8) -> Self {
+    pub fn new(data: &[u8], format: AudioFormat, looping: bool, loop_start: i32, loop_end: i32, global_volume: u8, default_volume: u8) -> Self {
         let multiplier = format.sample_rate as f64 / (crate::track_player::calculate_speed(crate::PianoKey::C, 5, 1.0) * format.sample_rate as f64);
 
         let mut d_vec = data.to_vec();
@@ -27,7 +28,8 @@ impl Sample {
             loop_start,
             loop_end,
 
-            global_volume
+            global_volume,
+            default_volume
         }
     }
 }
