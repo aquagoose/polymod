@@ -53,11 +53,13 @@ fn fix_sample(data: &mut Vec<u8>, format: &AudioFormat) {
         let alignment = format.bits_per_sample / 8;
 
         while data.len() != old_data.len() {
-            for _ in 0..alignment {
-                if is_right {
+            if is_right {
+                for _ in 0..alignment {
                     data.push(old_data[right_i]);
                     right_i += 1;
-                } else {
+                }
+            } else {
+                for _ in 0..alignment {
                     data.push(old_data[left_i]);
                     left_i += 1;
                 }
