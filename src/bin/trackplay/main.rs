@@ -9,7 +9,10 @@ struct Args {
     path: String,
 
     #[arg(short, long, default_value_t = 1.0)]
-    tuning: f64
+    tuning: f64,
+
+    #[arg(long, default_value_t = false)]
+    no_interpolation: bool
 }
 
 struct Audio<'a> {
@@ -17,7 +20,7 @@ struct Audio<'a> {
 }
 
 impl<'a> AudioCallback for Audio<'a> {
-    type Channel = i16;
+    type Channel = f32;
 
     fn callback(&mut self, out: &mut [Self::Channel]) {
         for x in out.iter_mut() {
@@ -43,6 +46,7 @@ fn main() {
 
     let mut player = TrackPlayer::new(&track);
     player.tuning = tuning;
+    player.set_interpolation(if args.no_interpolation { mixr::InterpolationType::None } else { mixr::InterpolationType::Linear });
     
     let sdl = sdl2::init().unwrap();
     let audio = sdl.audio().unwrap();

@@ -39,7 +39,8 @@ pub struct Track {
 impl Track {
     /// Load the given Impulse Tracker file (.IT)
     pub fn from_it(path: &str) -> Result<Track, io::Error> {
-        let mut reader = mixr::binary_reader::BinaryReader::new(path)?;
+        let read = std::fs::read(path)?;
+        let mut reader = mixr::binary_reader::BinaryReader::new(&read);
         if reader.read_string(4) != String::from("IMPM") {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected \"IMPM\", not found."));
         }

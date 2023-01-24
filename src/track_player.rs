@@ -42,11 +42,7 @@ pub struct TrackPlayer<'a> {
 
 impl<'a> TrackPlayer<'a> {
     pub fn new(track: &'a Track) -> Self {
-        let mut system = mixr::system::AudioSystem::new(Some(mixr::AudioFormat { 
-            channels: 2, 
-            sample_rate: SAMPLE_RATE, 
-            bits_per_sample: 16 }),
-        64);
+        let mut system = mixr::system::AudioSystem::new(SAMPLE_RATE,64);
         
         let mut buffers = Vec::with_capacity(track.samples.len());
         for i in 0..track.samples.len() {
@@ -59,6 +55,7 @@ impl<'a> TrackPlayer<'a> {
         let mut channels = Vec::with_capacity(system.num_channels() as usize);
         for i in 0..system.num_channels() {
             let mut properties = ChannelProperties::default();
+            properties.interpolation_type = mixr::InterpolationType::None;
 
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
@@ -100,7 +97,7 @@ impl<'a> TrackPlayer<'a> {
         }
     }
 
-    pub fn advance(&mut self) -> i16 {
+    pub fn advance(&mut self) -> f32 {
         let pattern = &self.track.patterns[self.track.orders[self.current_order] as usize];
 
         if self.current_half_sample == 0 {
@@ -172,25 +169,26 @@ impl<'a> TrackPlayer<'a> {
                     Effect::VolumeSlide => {
                         // If the note parameter is 0, we just fetch the last one stored in memory.
                         // If the last parameter is also 0 then nothing happens.
-                        let vol_param = if note.effect_param == 0 { channel.vol_memory } else { note.effect_param };
+                        let mut vol_param = if note.effect_param == 0 { channel.vol_memory } else { note.effect_param };
                         channel.vol_memory = vol_param;
 
                         // Handle DFy and DxF, if 'F' is set then the volume slide only occurs on the first tick.
-                        if (vol_param < 0xF0 && (vol_param & 0xF) != 0xF) && self.current_tick != 0 {
-                            continue;
-                        }
+                        // However, if value is D0F, then ignore, as this is not a fine volume slide.
                         // Volume slide occurs on every tick except the first, **unless** it is D0F.
-                        else if self.current_tick == 0 && vol_param != 15 {
-                            continue;
-                        }
-
-                        if channel.current_sample.is_none() {
+                        if channel.current_sample.is_none() || (self.current_tick == 0 && ((vol_param & 0xF0) != 0xF0 && (vol_param & 0xF) != 0xF)) ||
+                            (((vol_param & 0xF0) == 0xF0 || ((vol_param & 0xF) == 0xF && (vol_param & 0xF0) != 0)) && self.current_tick != 0) {
                             continue;
                         }
 
                         let sample_id = channel.current_sample.unwrap();
 
                         let mut volume = channel.note_volume as i32;
+
+                        // If the volume parameter is DFx then we need to remove the F so that the volume slide
+                        // works as usual, otherwise it would think it's a value of 240 + x
+                        if (vol_param & 0xF0) == 0xF0 {
+                            vol_param = vol_param & 0x0F
+                        }
 
                         // D0y decreases volume by y units.
                         // Dx0 increases volume by x units.
@@ -277,6 +275,12 @@ impl<'a> TrackPlayer<'a> {
         }
 
         self.system.advance()
+    }
+
+    pub fn set_interpolation(&mut self, interp_type: mixr::InterpolationType) {
+        for channel in self.channels.iter_mut() {
+            channel.properties.interpolation_type = interp_type;
+        }
     }
 }
 
