@@ -8,7 +8,7 @@ struct Audio<'a> {
 }
 
 impl<'a> AudioCallback for Audio<'a> {
-    type Channel = i16;
+    type Channel = f32;
 
     fn callback(&mut self, out: &mut [Self::Channel]) {
         for x in out.iter_mut() {

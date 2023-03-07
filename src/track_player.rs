@@ -1,4 +1,4 @@
-use mixr::ChannelProperties;
+use mixr::{ChannelProperties, BufferDescription, DataType, AudioFormat};
 
 use crate::{track::Track, PianoKey, Effect, sample::Sample, Note};
 
@@ -12,6 +12,7 @@ struct TrackChannel {
     note_volume: u8,
 
     vol_memory: u8,
+    pitch_memory: u8,
 
     offset_memory: u8,
     high_offset: usize
@@ -37,6 +38,7 @@ pub struct TrackPlayer<'a> {
 
     channels: Vec<TrackChannel>,
 
+    pub looping: bool,
     pub tuning: f64
 }
 
@@ -46,32 +48,35 @@ impl<'a> TrackPlayer<'a> {
         
         let mut buffers = Vec::with_capacity(track.samples.len());
         for i in 0..track.samples.len() {
-            let buffer = system.create_buffer();
             let sample = &track.samples[i];
-            system.update_buffer(buffer, &sample.data, sample.format).unwrap();
+            let buffer = system.create_buffer(BufferDescription { data_type: DataType::Pcm, format: sample.format }, Some(&sample.data));
             buffers.push(buffer);
         }
 
         let mut channels = Vec::with_capacity(system.num_channels() as usize);
         for i in 0..system.num_channels() {
             let mut properties = ChannelProperties::default();
-            properties.interpolation_type = mixr::InterpolationType::None;
+            properties.interpolation = mixr::InterpolationType::Linear;
 
             let pan = track.pans[i as usize];
             properties.panning = pan as f64 / 64.0;
             // A pan value of >= 128 means the channel is disabled and will not be played.
             channels.push(TrackChannel {
                 properties,
-                enabled: pan >= 128,
+                enabled: pan < 128,
                 current_sample: None,
                 note_volume: 0,
 
                 vol_memory: 0,
+                pitch_memory: 0,
 
                 offset_memory: 0,
                 high_offset: 0
             });
         }
+
+        let half_samples_per_tick = calculate_half_samples_per_tick(track.tempo);
+        let speed = track.speed;
 
         Self { 
             track, 
@@ -79,9 +84,9 @@ impl<'a> TrackPlayer<'a> {
             buffers,
 
             current_half_sample: 0,
-            half_samples_per_tick: calculate_half_samples_per_tick(track.tempo),
+            half_samples_per_tick,
             current_tick: 0,
-            current_speed: track.speed,
+            current_speed: speed,
 
             current_order: 0,
             current_row: 0,
@@ -93,20 +98,21 @@ impl<'a> TrackPlayer<'a> {
 
             channels,
 
+            looping: true,
             tuning: 1.0
         }
     }
 
-    pub fn advance(&mut self) -> f32 {
+    pub fn advance(&mut self) -> f64 {
         let pattern = &self.track.patterns[self.track.orders[self.current_order] as usize];
 
         if self.current_half_sample == 0 {
             for c in 0..pattern.channels {
                 let mut channel = &mut self.channels[c as usize];
 
-                //if !channel.enabled {
-                //    continue;
-               // }
+                if !channel.enabled {
+                    continue;
+                }
 
                 let note = pattern.notes.get(c as usize, self.current_row);
                 
@@ -205,9 +211,45 @@ impl<'a> TrackPlayer<'a> {
                         channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
-                    /*Effect::PortamentoDown => todo!(),
-                    Effect::PortamentoUp => todo!(),
-                    Effect::TonePortamento => todo!(),
+                    Effect::PortamentoDown => {
+                        let mut pitch_param = if note.effect_param == 0 { channel.pitch_memory } else { note.effect_param };
+                        channel.pitch_memory = pitch_param;
+
+                        if ((pitch_param & 0xF0) >= 0xE0 && self.current_tick != 0) || self.current_tick == 0 && (pitch_param & 0xF0) < 0xE0 {
+                            continue;
+                        }
+
+                        let multiplier = if (pitch_param & 0xF0) == 0xE0 { 1.0 / 4.0 } else { 1.0 };
+
+                        if (pitch_param & 0xF0) == 0xF0 {
+                            pitch_param &= 0xF;
+                        } else if (pitch_param & 0xF0) == 0xE0 {
+                            pitch_param &= 0xF;
+                        }
+
+                        channel.properties.speed *= f64::powf(2.0, -4.0 * (pitch_param as f64 * multiplier) / 768.0);
+                        self.system.set_channel_properties(c, channel.properties).unwrap();
+                    },
+                    Effect::PortamentoUp => {
+                        let mut pitch_param = if note.effect_param == 0 { channel.pitch_memory } else { note.effect_param };
+                        channel.pitch_memory = pitch_param;
+
+                        if ((pitch_param & 0xF0) >= 0xE0 && self.current_tick != 0) || self.current_tick == 0 && (pitch_param & 0xF0) < 0xE0 {
+                            continue;
+                        }
+
+                        let multiplier = if (pitch_param & 0xF0) == 0xE0 { 1.0 / 4.0 } else { 1.0 };
+
+                        if (pitch_param & 0xF0) == 0xF0 {
+                            pitch_param &= 0xF;
+                        } else if (pitch_param & 0xF0) == 0xE0 {
+                            pitch_param &= 0xF;
+                        }
+
+                        channel.properties.speed *= f64::powf(2.0, 4.0 * (pitch_param as f64 * multiplier) / 768.0);
+                        self.system.set_channel_properties(c, channel.properties).unwrap();
+                    },
+                    /*Effect::TonePortamento => todo!(),
                     Effect::Vibrato => todo!(),
                     Effect::Tremor => todo!(),
                     Effect::Arpeggio => todo!(),
@@ -221,7 +263,7 @@ impl<'a> TrackPlayer<'a> {
                             channel.offset_memory = offset;
 
                             if note.key != PianoKey::None {
-                                self.system.seek_to_sample(c, offset as usize * 256 + channel.high_offset).unwrap();
+                                let _ = self.system.seek_to_sample(c, offset as usize * 256 + channel.high_offset);
                             }
                         }
                     },
@@ -231,16 +273,29 @@ impl<'a> TrackPlayer<'a> {
                     Effect::Special => {
                         let param = note.effect_param;
 
+                        if param >= 0x80 && param <= 0x8F {
+                            channel.properties.panning = (param & 0xF) as f64 / 15.0;
+                            self.system.set_channel_properties(c, channel.properties).unwrap();
+                        }
+
                         if param >= 0xA0 && param <= 0xAF {
                             channel.high_offset = (param & 0xF) as usize * 65536;
                         }
                     },
-                    /*Effect::Tempo => todo!(),
-                    Effect::FineVibrato => todo!(),
+                    Effect::Tempo => {
+                        // TODO: Tempo slides
+                        if note.effect_param > 0x20 && self.current_tick == 0 {
+                            self.half_samples_per_tick = calculate_half_samples_per_tick(note.effect_param);
+                        }
+                    },
+                    /*Effect::FineVibrato => todo!(),
                     Effect::SetGlobalVolume => todo!(),
-                    Effect::GlobalVolumeSlide => todo!(),
-                    Effect::SetPanning => todo!(),
-                    Effect::Panbrello => todo!(),
+                    Effect::GlobalVolumeSlide => todo!(),*/
+                    Effect::SetPanning => {
+                        channel.properties.panning = note.effect_param as f64 / 255.0;
+                        self.system.set_channel_properties(c, channel.properties).unwrap();
+                    },
+                    /*Effect::Panbrello => todo!(),
                     Effect::MidiMacro => todo!(),*/
                     _ => {}
                 }
@@ -268,9 +323,16 @@ impl<'a> TrackPlayer<'a> {
                     self.current_order += 1;
 
                     if self.current_order >= self.track.orders.len() || self.track.orders[self.current_order] == 255 {
-                        self.current_order = 0;
+                        if self.looping {
+                            self.current_order = 0;
+                        }
+                        else {
+                            return 0.0;
+                        }
                     }
                 }
+
+                println!("Ord {}/{} Row {}/{} Spd {}, HSPT {} (Tmp {}, SR {})", self.current_order + 1, self.track.orders.len(), self.current_row, pattern.rows, self.current_speed, self.half_samples_per_tick, calculate_tempo_from_hspt(self.half_samples_per_tick), SAMPLE_RATE);
             }
         }
 
@@ -279,13 +341,17 @@ impl<'a> TrackPlayer<'a> {
 
     pub fn set_interpolation(&mut self, interp_type: mixr::InterpolationType) {
         for channel in self.channels.iter_mut() {
-            channel.properties.interpolation_type = interp_type;
+            channel.properties.interpolation = interp_type;
         }
     }
 }
 
 pub fn calculate_half_samples_per_tick(tempo: u8) -> u32 {
     ((2.5 / tempo as f64) * 2.0 * SAMPLE_RATE as f64) as u32
+}
+
+pub fn calculate_tempo_from_hspt(hspt: u32) -> u8 {
+    (2.5 / (hspt as f64 / SAMPLE_RATE as f64 / 2.0)) as u8
 }
 
 pub fn calculate_speed(key: PianoKey, octave: u8, multiplier: f64) -> f64 {

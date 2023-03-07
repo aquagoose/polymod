@@ -1,6 +1,6 @@
-use mixr::AudioFormat;
+use mixr::{AudioFormat, FormatType};
 
-use crate::{PianoKey, ModuleType};
+use super::{PianoKey, ModuleType};
 
 use super::{Arr2D, Note, sample::Sample};
 use std::io;
@@ -38,15 +38,14 @@ pub struct Track {
 
 impl Track {
     /// Load the given Impulse Tracker file (.IT)
-    pub fn from_it(path: &str) -> Result<Track, io::Error> {
-        let read = std::fs::read(path)?;
-        let mut reader = mixr::binary_reader::BinaryReader::new(&read);
+    pub fn from_it(data: &[u8]) -> Result<Track, io::Error> {
+        let mut reader = mixr::binary_reader::BinaryReader::new(data);
         if reader.read_string(4) != String::from("IMPM") {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected \"IMPM\", not found."));
         }
 
         let title = reader.read_string(26);
-        crate::log(format!("Loading \"{}\"...", title));
+        super::log(format!("Loading \"{}\"...", title));
 
         reader.read_bytes(2); // pattern highlight
         
@@ -69,7 +68,7 @@ impl Track {
         let initial_speed = reader.read_u8();
         let initial_tempo = reader.read_u8();
 
-        crate::log(format!("gv: {global_volume}, mv: {mix_volume}, spd: {initial_speed}, tmp: {initial_tempo}"));
+        super::log(format!("gv: {global_volume}, mv: {mix_volume}, spd: {initial_speed}, tmp: {initial_tempo}"));
 
         reader.read_bytes(12); // stuff we don't need.
 
@@ -101,19 +100,19 @@ impl Track {
             let s_flags = reader.read_u8();
 
             let mut format = AudioFormat::default();
-            format.bits_per_sample = if (s_flags & 2) == 2 { 16 } else { 8 };
+            format.format_type = if (s_flags & 2) == 2 { FormatType::I16 } else { FormatType::I8 };
             format.channels = if (s_flags & 4) == 4 { 2 } else { 1 };
             // todo, loops and stuff
 
             let s_def_vol = reader.read_u8(); // default volume
 
             let s_name = reader.read_string(26);
-            crate::log(format!("Loading {s_name} ({dos_name})..."));
+            super::log(format!("Loading {s_name} ({dos_name})..."));
 
             let s_cvt = reader.read_u8(); // convert, unused *yet* but will be later.
             reader.read_u8(); // default pan, don't think it needs to be used.
 
-            let s_length = reader.read_u32() * format.channels as u32 * (format.bits_per_sample / 8) as u32;
+            let s_length = reader.read_u32() * format.channels as u32 * format.bytes_per_sample() as u32;
             let s_loop_start = reader.read_u32();
             let s_loop_end = reader.read_u32();
             format.sample_rate = reader.read_i32();
@@ -230,7 +229,7 @@ impl Track {
                     }
 
                     let note = Note::new(key, octave, instrument, volume, effect, effect_param);
-                    crate::log(format!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note));
+                    super::log(format!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note));
                     pattern.set_note(channel as u16, r, note);
 
                     c_var = reader.read_u8();

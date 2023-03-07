@@ -24,7 +24,7 @@ impl<'a> AudioCallback for Audio<'a> {
 
     fn callback(&mut self, out: &mut [Self::Channel]) {
         for x in out.iter_mut() {
-            *x = self.player.advance();
+            *x = self.player.advance() as f32;
         }
     }
 }
@@ -34,7 +34,7 @@ fn main() {
     let path = args.path.as_str();
     let tuning = args.tuning;
 
-    let track = Track::from_it(path);
+    let track = Track::from_it(&std::fs::read(path).unwrap());
     if let Some(err) = track.as_ref().err() {
         if err.kind() == std::io::ErrorKind::NotFound {
             println!("The path \"{path}\" was not found.");
