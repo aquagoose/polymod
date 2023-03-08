@@ -10,20 +10,26 @@ mod binary;
 
 #[derive(Parser)]
 struct Args {
+    /// Path to the file.
     path: String,
 
+    /// The pitch tuning, where 1.0 is no change.
     #[arg(long, default_value_t = 1.0)]
-    pitch_tuning: f64,
+    pitch: f64,
 
+    /// The tempo tuning, where 1.0 is no change.
     #[arg(long, default_value_t = 1.0)]
-    tempo_tuning: f64,
+    tempo: f64,
 
+    /// The start offset in seconds.
     #[arg(long, default_value_t = 0.0)]
     start: f64,
 
+    /// Disable interpolation.
     #[arg(long, default_value_t = false)]
     no_interpolation: bool,
 
+    /// If set, the output will be redirected to the given file.
     #[arg(long)]
     render: Option<String>
 }
@@ -45,8 +51,8 @@ impl<'a> AudioCallback for Audio<'a> {
 fn main() {
     let args = Args::parse();
     let path = args.path.as_str();
-    let pitch_tuning = args.pitch_tuning;
-    let tempo_tuning = args.tempo_tuning;
+    let pitch_tuning = args.pitch;
+    let tempo_tuning = args.tempo;
     let start = args.start;
 
     let track = Track::from_it(&std::fs::read(path).unwrap());
@@ -89,7 +95,7 @@ fn main() {
 
         writer.write_u32(0x61746164);
 
-        let length_in_samples = (track.length_in_seconds * polymod::track_player::SAMPLE_RATE as f64) as usize * 2;
+        let length_in_samples = (track.length_in_seconds * (1.0 / tempo_tuning) * polymod::track_player::SAMPLE_RATE as f64) as usize * 2;
 
         let mut output = Vec::with_capacity(length_in_samples * 4);
 

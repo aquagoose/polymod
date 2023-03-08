@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 polymod = { path = "../polymod" }
 mixr = { path = "../../mixr" }
-sdl2 = "0.35.2"
+sdl2 = { version = "0.35.2", features = ["bundled"] }
 ctrlc = "3.2.4"
 clap = { version = "4.0.32", features = ["derive"] }
 crossterm = "0.26.1"
