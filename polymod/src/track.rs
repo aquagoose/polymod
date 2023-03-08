@@ -1,8 +1,11 @@
 use mixr::{AudioFormat, FormatType};
 
+use crate::Effect;
+
 use super::{PianoKey, ModuleType};
 
 use super::{Arr2D, Note, sample::Sample};
+use std::collections::HashMap;
 use std::io;
 
 pub struct Pattern {
@@ -33,7 +36,10 @@ pub struct Track {
 
     pub global_volume: u8,
     pub pans: Vec<u8>,
-    pub mix_volume: u8
+    pub mix_volume: u8,
+
+    pub length_in_seconds: f64,
+    pub seek_table: Vec<SeekTable>
 }
 
 impl Track {
@@ -58,7 +64,7 @@ impl Track {
 
         let flags = reader.read_u16();
         if (flags & 4) == 4 {
-            return Err(io::Error::new(io::ErrorKind::Unsupported, "Instruments are not currently supported."));
+            todo!("Instruments are not currently supported.");
         }
 
         reader.read_bytes(2); // special, not needed.
@@ -240,6 +246,12 @@ impl Track {
             reader.position = curr_pos;
         }
 
+        let (length, order_table) = calculate_length(&patterns, &orders, initial_tempo, initial_speed);
+
+        println!("{:?}", order_table);
+
+        println!("LENGTH_SECS: {length}");
+
         Ok(Track { 
             mod_type: ModuleType::IT,
             
@@ -252,9 +264,14 @@ impl Track {
 
             global_volume,
             pans,
-            mix_volume
+            mix_volume,
+
+            length_in_seconds: length,
+            seek_table: order_table
         })
     }
+
+    
 }
 
 struct PatternCache {
@@ -264,4 +281,96 @@ struct PatternCache {
     pub volume: u8,
     pub effect: u8,
     pub eff_param: u8
+}
+
+#[derive(Debug, Clone)]
+pub struct SeekValue {
+    pub start: f64,
+
+    pub speed: u8,
+    pub tempo: u8
+}
+
+#[derive(Debug)]
+pub struct SeekTable {
+    pub start: f64,
+
+    pub rows: Vec<SeekValue>
+}
+
+/// Precalculate the length of a track.
+fn calculate_length(patterns: &Vec<Pattern>, orders: &Vec<u8>, init_tempo: u8, init_speed: u8) -> (f64, Vec<SeekTable>) {
+    // Fairly simple, just plays through the entire track in order, picking up on any tempo/speed changes,
+    // and handling position jumps and pattern breaks.
+
+    // The seek table contains two things:
+    // 1. The time in seconds at which each order starts
+    // 2. The time in seconds for each row in each order.
+    // Why this route?
+    // Well - The reason we store the time in seconds for each order is so that we can quickly look up
+    // during seeking. Iterate through all orders, checking the starting time until we find one that
+    // is less than or equal to the time we're trying to seek to.
+    // Then - loop through each row similarly to above. We now know the exact order and row we need,
+    // and can seek to it.
+    let mut seek_table = Vec::new();
+
+    let mut rows = Vec::new();
+
+    let mut length = 0.0;
+    let mut last_length = 0.0;
+
+    let mut curr_tempo = init_tempo;
+    let mut curr_speed = init_speed;
+
+    let mut duration = (2.5 / curr_tempo as f64) * curr_speed as f64;
+
+    for order in 0..orders.len() - 1 {
+        let order = orders[order] as usize;
+        if order == 255 {
+            return (length, seek_table);
+        } else if order >= patterns.len() {
+            continue;
+        }
+
+        let pattern = &patterns[order];
+
+        for row in 0..pattern.rows {
+            for channel in 0..pattern.channels {
+                let note = pattern.notes.get(channel as usize, row as usize);
+
+                match note.effect {
+                    Effect::SetSpeed => {
+                        curr_speed = note.effect_param;
+                        duration = (2.5 / curr_tempo as f64) * curr_speed as f64;
+                    },
+                    Effect::Tempo => {
+                        curr_tempo = note.effect_param;
+                        duration = (2.5 / curr_tempo as f64) * curr_speed as f64;
+                    },
+
+                    Effect::PatternBreak => continue,
+
+                    Effect::PositionJump => {
+                        if note.effect_param as usize <= order {
+                            return (length, seek_table);
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    _ => {}
+                }
+            }
+
+            rows.push(SeekValue { start: length, speed: curr_speed, tempo: curr_tempo });
+
+            length += duration;
+        }
+
+        seek_table.push(SeekTable { start: last_length, rows: rows.clone() });
+        rows.clear();
+        last_length = length;
+    }
+
+    (length, seek_table)
 }

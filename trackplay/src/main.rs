@@ -8,8 +8,11 @@ use clap::Parser;
 struct Args {
     path: String,
 
-    #[arg(short, long, default_value_t = 1.0)]
+    #[arg(long, default_value_t = 1.0)]
     tuning: f64,
+
+    #[arg(long, default_value_t = 0.0)]
+    start: f64,
 
     #[arg(long, default_value_t = false)]
     no_interpolation: bool
@@ -33,6 +36,7 @@ fn main() {
     let args = Args::parse();
     let path = args.path.as_str();
     let tuning = args.tuning;
+    let start = args.start;
 
     let track = Track::from_it(&std::fs::read(path).unwrap());
     if let Some(err) = track.as_ref().err() {
@@ -47,6 +51,8 @@ fn main() {
     let mut player = TrackPlayer::new(&track);
     player.tuning = tuning;
     player.set_interpolation(if args.no_interpolation { mixr::InterpolationType::None } else { mixr::InterpolationType::Linear });
+
+    player.seek_seconds(start);
     
     let sdl = sdl2::init().unwrap();
     let audio = sdl.audio().unwrap();

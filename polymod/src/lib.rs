@@ -31,7 +31,7 @@ pub enum PianoKey {
     B
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Effect {
     None,
 

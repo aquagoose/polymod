@@ -344,6 +344,32 @@ impl<'a> TrackPlayer<'a> {
             channel.properties.interpolation = interp_type;
         }
     }
+
+    pub fn seek_seconds(&mut self, seconds: f64) -> f64 {
+        for i in 0..self.track.seek_table.len() {
+            let table = &self.track.seek_table[i];
+            if table.start > seconds {
+                let table = &self.track.seek_table[i - 1];
+                for j in 0..table.rows.len() {
+                    let row = &table.rows[j];
+                    if row.start > seconds {
+                        self.current_tick = 0;
+                        self.current_half_sample = 0;
+                        self.current_order = i - if i == 0 { 0 } else { 1 };
+                        
+                        self.current_row = j - if j == 0 { 0 } else { 1 };
+
+                        self.current_speed = row.speed;
+                        self.half_samples_per_tick = calculate_half_samples_per_tick(row.tempo);
+
+                        return row.start;
+                    }
+                }
+            }
+        }
+
+        0.0
+    }
 }
 
 pub fn calculate_half_samples_per_tick(tempo: u8) -> u32 {
