@@ -27,6 +27,7 @@ pub struct TrackPlayer<'a> {
     half_samples_per_tick: u32,
     current_tick: u8,
     current_speed: u8,
+    current_tempo: u8,
 
     current_order: usize,
     current_row: usize,
@@ -38,8 +39,10 @@ pub struct TrackPlayer<'a> {
 
     channels: Vec<TrackChannel>,
 
-    pub looping: bool,
-    pub tuning: f64
+    pitch_tuning: f64,
+    tempo_tuning: f64,
+
+    pub looping: bool
 }
 
 impl<'a> TrackPlayer<'a> {
@@ -77,6 +80,7 @@ impl<'a> TrackPlayer<'a> {
 
         let half_samples_per_tick = calculate_half_samples_per_tick(track.tempo);
         let speed = track.speed;
+        let tempo = track.tempo;
 
         Self { 
             track, 
@@ -87,6 +91,7 @@ impl<'a> TrackPlayer<'a> {
             half_samples_per_tick,
             current_tick: 0,
             current_speed: speed,
+            current_tempo: tempo,
 
             current_order: 0,
             current_row: 0,
@@ -99,7 +104,8 @@ impl<'a> TrackPlayer<'a> {
             channels,
 
             looping: true,
-            tuning: 1.0
+            pitch_tuning: 1.0,
+            tempo_tuning: 1.0
         }
     }
 
@@ -139,7 +145,7 @@ impl<'a> TrackPlayer<'a> {
                             let properties = &mut channel.properties;
                             let volume = note.volume.unwrap_or(sample.default_volume);
                             properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
-                            properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.tuning;
+                            properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.pitch_tuning;
                             properties.looping = sample.looping;
                             properties.loop_start = sample.loop_start;
                             properties.loop_end = sample.loop_end;
@@ -285,7 +291,7 @@ impl<'a> TrackPlayer<'a> {
                     Effect::Tempo => {
                         // TODO: Tempo slides
                         if note.effect_param > 0x20 && self.current_tick == 0 {
-                            self.half_samples_per_tick = calculate_half_samples_per_tick(note.effect_param);
+                            self.set_tempo(note.effect_param);
                         }
                     },
                     /*Effect::FineVibrato => todo!(),
@@ -332,7 +338,7 @@ impl<'a> TrackPlayer<'a> {
                     }
                 }
 
-                println!("Ord {}/{} Row {}/{} Spd {}, HSPT {} (Tmp {}, SR {})", self.current_order + 1, self.track.orders.len(), self.current_row, pattern.rows, self.current_speed, self.half_samples_per_tick, calculate_tempo_from_hspt(self.half_samples_per_tick), SAMPLE_RATE);
+                println!("Ord {}/{} Row {}/{} Spd {}, HSPT {} (Tmp {}, SR {})", self.current_order + 1, self.track.orders.len(), self.current_row, pattern.rows, self.current_speed, self.half_samples_per_tick, self.current_tempo, SAMPLE_RATE);
             }
         }
 
@@ -343,6 +349,15 @@ impl<'a> TrackPlayer<'a> {
         for channel in self.channels.iter_mut() {
             channel.properties.interpolation = interp_type;
         }
+    }
+
+    pub fn set_pitch_tuning(&mut self, tuning: f64) {
+        self.pitch_tuning = tuning;
+    }
+
+    pub fn set_tempo_tuning(&mut self, tuning: f64) {
+        self.tempo_tuning = tuning;
+        self.set_tempo(self.current_tempo);
     }
 
     pub fn seek_seconds(&mut self, seconds: f64) -> f64 {
@@ -360,7 +375,7 @@ impl<'a> TrackPlayer<'a> {
                         self.current_row = j - if j == 0 { 0 } else { 1 };
 
                         self.current_speed = row.speed;
-                        self.half_samples_per_tick = calculate_half_samples_per_tick(row.tempo);
+                        self.set_tempo(row.tempo);
 
                         return row.start;
                     }
@@ -370,14 +385,15 @@ impl<'a> TrackPlayer<'a> {
 
         0.0
     }
+
+    fn set_tempo(&mut self, tempo: u8) {
+        self.current_tempo = tempo;
+        self.half_samples_per_tick = (calculate_half_samples_per_tick(tempo) as f64 * (1.0 / self.tempo_tuning)) as u32;
+    }
 }
 
 pub fn calculate_half_samples_per_tick(tempo: u8) -> u32 {
     ((2.5 / tempo as f64) * 2.0 * SAMPLE_RATE as f64) as u32
-}
-
-pub fn calculate_tempo_from_hspt(hspt: u32) -> u8 {
-    (2.5 / (hspt as f64 / SAMPLE_RATE as f64 / 2.0)) as u8
 }
 
 pub fn calculate_speed(key: PianoKey, octave: u8, multiplier: f64) -> f64 {

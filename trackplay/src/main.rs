@@ -9,7 +9,10 @@ struct Args {
     path: String,
 
     #[arg(long, default_value_t = 1.0)]
-    tuning: f64,
+    pitch_tuning: f64,
+
+    #[arg(long, default_value_t = 1.0)]
+    tempo_tuning: f64,
 
     #[arg(long, default_value_t = 0.0)]
     start: f64,
@@ -35,7 +38,8 @@ impl<'a> AudioCallback for Audio<'a> {
 fn main() {
     let args = Args::parse();
     let path = args.path.as_str();
-    let tuning = args.tuning;
+    let pitch_tuning = args.pitch_tuning;
+    let tempo_tuning = args.tempo_tuning;
     let start = args.start;
 
     let track = Track::from_it(&std::fs::read(path).unwrap());
@@ -49,7 +53,8 @@ fn main() {
     let track = track.unwrap();
 
     let mut player = TrackPlayer::new(&track);
-    player.tuning = tuning;
+    player.set_pitch_tuning(pitch_tuning);
+    player.set_tempo_tuning(tempo_tuning);
     player.set_interpolation(if args.no_interpolation { mixr::InterpolationType::None } else { mixr::InterpolationType::Linear });
 
     player.seek_seconds(start);
