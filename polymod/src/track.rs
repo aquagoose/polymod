@@ -334,7 +334,7 @@ fn calculate_length(patterns: &Vec<Pattern>, orders: &Vec<u8>, init_tempo: u8, i
 
         let pattern = &patterns[order];
 
-        for row in 0..pattern.rows {
+        'rowcount: for row in 0..pattern.rows {
             for channel in 0..pattern.channels {
                 let note = pattern.notes.get(channel as usize, row as usize);
 
@@ -348,13 +348,17 @@ fn calculate_length(patterns: &Vec<Pattern>, orders: &Vec<u8>, init_tempo: u8, i
                         duration = (2.5 / curr_tempo as f64) * curr_speed as f64;
                     },
 
-                    Effect::PatternBreak => continue,
+                    Effect::PatternBreak => {
+                        length += duration;
+                        break 'rowcount
+                    },
 
                     Effect::PositionJump => {
                         if note.effect_param as usize <= order {
                             return (length, seek_table);
                         } else {
-                            continue;
+                            length += duration;
+                            break 'rowcount;
                         }
                     }
 
