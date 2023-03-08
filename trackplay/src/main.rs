@@ -4,6 +4,10 @@ use polymod::{self, track::{Track}, track_player::{TrackPlayer}};
 use sdl2::audio::{AudioSpecDesired, AudioCallback};
 use clap::Parser;
 
+use crate::binary::BinaryWriter;
+
+mod binary;
+
 #[derive(Parser)]
 struct Args {
     path: String,
@@ -18,7 +22,10 @@ struct Args {
     start: f64,
 
     #[arg(long, default_value_t = false)]
-    no_interpolation: bool
+    no_interpolation: bool,
+
+    #[arg(long)]
+    render: Option<String>
 }
 
 struct Audio<'a> {
@@ -58,6 +65,54 @@ fn main() {
     player.set_interpolation(if args.no_interpolation { mixr::InterpolationType::None } else { mixr::InterpolationType::Linear });
 
     player.seek_seconds(start);
+
+    if let Some(render) = args.render {
+        println!("Saving to {render}...");
+
+        let mut writer = BinaryWriter::new();
+
+        writer.write_u32(0x46464952);
+        writer.write_u32(0x0);
+
+        writer.write_u32(0x45564157);
+        writer.write_u32(0x20746D66);
+
+        writer.write_u32(16);
+
+        writer.write_u16(3);
+        writer.write_u16(2);
+
+        writer.write_u32(polymod::track_player::SAMPLE_RATE as u32);
+        writer.write_u32(polymod::track_player::SAMPLE_RATE as u32 * 8);
+        writer.write_u16(8);
+        writer.write_u16(32);
+
+        writer.write_u32(0x61746164);
+
+        let length_in_samples = (track.length_in_seconds * polymod::track_player::SAMPLE_RATE as f64) as usize * 2;
+
+        let mut output = Vec::with_capacity(length_in_samples * 4);
+
+        for i in 0..length_in_samples {
+            let samples = (player.advance() as f32).to_le_bytes();
+
+            output.push(samples[0]);
+            output.push(samples[1]);
+            output.push(samples[2]);
+            output.push(samples[3]);
+
+            if i % 100000 == 0 {
+                println!("{i} / {length_in_samples} ({:.2}%)", (i as f64 / length_in_samples as f64) * 100.0);
+            }
+        }
+
+        writer.write_u32(output.len() as u32);
+        writer.write_bytes(&mut output);
+
+        std::fs::write(render.as_str(), writer.get_data()).unwrap();
+
+        return;
+    }
     
     let sdl = sdl2::init().unwrap();
     let audio = sdl.audio().unwrap();
