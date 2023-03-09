@@ -248,9 +248,12 @@ impl Track {
 
         let (length, order_table) = calculate_length(&patterns, &orders, initial_tempo, initial_speed);
 
-        println!("{:?}", order_table);
+        let mut total = 0;
+        for table in &order_table {
+            total += 1 + table.rows.len();
+        }
 
-        println!("LENGTH_SECS: {length}");
+        println!("DEBUG INFORMATION:\nTitle: {title}\nOrders: {num_orders}\nPatterns: {num_patterns}\nSamples: {num_samples}\nGV: {global_volume}, MV: {mix_volume}\nIT: {initial_tempo}, IS: {initial_speed}\nLength: {length:.2}s\nSeek table: {total} total entries");
 
         Ok(Track { 
             mod_type: ModuleType::IT,

@@ -42,6 +42,8 @@ pub struct TrackPlayer<'a> {
     pitch_tuning: f64,
     tempo_tuning: f64,
 
+    global_volume: u8,
+
     pub looping: bool
 }
 
@@ -105,7 +107,9 @@ impl<'a> TrackPlayer<'a> {
 
             looping: true,
             pitch_tuning: 1.0,
-            tempo_tuning: 1.0
+            tempo_tuning: 1.0,
+
+            global_volume: track.global_volume
         }
     }
 
@@ -144,7 +148,7 @@ impl<'a> TrackPlayer<'a> {
                             let sample = &self.track.samples[sample_id as usize];
                             let properties = &mut channel.properties;
                             let volume = note.volume.unwrap_or(sample.default_volume);
-                            properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
+                            properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                             properties.speed = calculate_speed(note.key, note.octave, sample.multiplier) * self.pitch_tuning;
                             properties.looping = sample.looping;
                             properties.loop_start = sample.loop_start;
@@ -159,7 +163,7 @@ impl<'a> TrackPlayer<'a> {
 
                     if let (Some(volume), Some(sample)) = (note.volume, channel.current_sample) {
                         let sample = &self.track.samples[sample as usize];
-                        channel.properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
+                        channel.properties.volume = ((volume as u32 * sample.global_volume as u32 * 64 * self.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                         channel.note_volume = volume;
                     }
@@ -214,7 +218,7 @@ impl<'a> TrackPlayer<'a> {
                         channel.note_volume = volume.clamp(0, 64) as u8;
 
                         let sample = &self.track.samples[sample_id as usize];
-                        channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.track.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
+                        channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
                     Effect::PortamentoDown => {
@@ -294,9 +298,13 @@ impl<'a> TrackPlayer<'a> {
                             self.set_tempo(note.effect_param);
                         }
                     },
-                    /*Effect::FineVibrato => todo!(),
-                    Effect::SetGlobalVolume => todo!(),
-                    Effect::GlobalVolumeSlide => todo!(),*/
+                    //Effect::FineVibrato => todo!(),
+                    Effect::SetGlobalVolume => {
+                        // TODO: This has weird behaviour right now. When global volume is adjusted - all sample volumes must be
+                        // adjusted too. Currently, this only affects new samples that are played.
+                        self.global_volume = note.effect_param
+                    },
+                    //Effect::GlobalVolumeSlide => todo!(),
                     Effect::SetPanning => {
                         channel.properties.panning = note.effect_param as f64 / 255.0;
                         self.system.set_channel_properties(c, channel.properties).unwrap();
