@@ -338,7 +338,7 @@ impl<'a> TrackPlayer<'a> {
                     }
                 }
 
-                println!("Ord {}/{} Row {}/{} Spd {}, HSPT {} (Tmp {}, SR {})", self.current_order + 1, self.track.orders.len(), self.current_row, pattern.rows, self.current_speed, self.half_samples_per_tick, self.current_tempo, SAMPLE_RATE);
+                //println!("Ord {}/{} Row {}/{} Spd {}, HSPT {} (Tmp {}, SR {})", self.current_order + 1, self.track.orders.len(), self.current_row, pattern.rows, self.current_speed, self.half_samples_per_tick, self.current_tempo, SAMPLE_RATE);
             }
         }
 

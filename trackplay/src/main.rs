@@ -77,27 +77,48 @@ fn main() {
 
         let mut writer = BinaryWriter::new();
 
+        // "RIFF"
         writer.write_u32(0x46464952);
+
+        // File size, we'll go back and add this in later.
         writer.write_u32(0x0);
 
+        // "WAVE"
         writer.write_u32(0x45564157);
+
+        // "fmt "
         writer.write_u32(0x20746D66);
 
+        // Subchunk1 size, 16 for PCM in this case.
         writer.write_u32(16);
 
+        // Format of 3, as floating point audio. 1 would be non floating point.
         writer.write_u16(3);
+
+        // 2 as stereo.
         writer.write_u16(2);
 
+        // Sampling rate.
         writer.write_u32(polymod::track_player::SAMPLE_RATE as u32);
+
+        // Byte rate = sample rate * channels(2) * bits_per_sample(32) / 8
         writer.write_u32(polymod::track_player::SAMPLE_RATE as u32 * 8);
+
+        // Block align = channels(2) * bits_per_sample(32) / 8
         writer.write_u16(8);
+
+        // Bits per sample.
         writer.write_u16(32);
 
+        // "data"
         writer.write_u32(0x61746164);
 
+        // Multiply this by 2 as we're in stereo.
         let length_in_samples = (track.length_in_seconds * (1.0 / tempo_tuning) * polymod::track_player::SAMPLE_RATE as f64) as usize * 2;
 
         let mut output = Vec::with_capacity(length_in_samples * 4);
+
+        println!("Rendering track...");
 
         for i in 0..length_in_samples {
             let samples = (player.advance() as f32).to_le_bytes();
@@ -107,15 +128,29 @@ fn main() {
             output.push(samples[2]);
             output.push(samples[3]);
 
-            if i % 100000 == 0 {
+            if i % 500000 == 0 {
                 println!("{i} / {length_in_samples} ({:.2}%)", (i as f64 / length_in_samples as f64) * 100.0);
             }
         }
 
-        writer.write_u32(output.len() as u32);
-        writer.write_bytes(&mut output);
+        println!("{length_in_samples} / {length_in_samples} (100.00%)");
 
+        println!("Writing result...");
+
+        // Subchunk2 size, in this case the PCM data length in bytes.
+        writer.write_u32(output.len() as u32);
+        writer.write_bytes(&output);
+
+        // Get current position (which is the number of bytes total), then write this value (-8) to the
+        // dummy value we entered earlier.
+        let position = writer.position() - 8;
+        writer.set_position(4);
+        writer.write_u32(position as u32);
+
+        println!("Saving...");
         std::fs::write(render.as_str(), writer.get_data()).unwrap();
+
+        println!("Done!");
 
         return;
     }
