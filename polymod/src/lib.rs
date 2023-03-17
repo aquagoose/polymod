@@ -1,6 +1,7 @@
 pub mod track;
 pub mod sample;
 pub mod track_player;
+pub mod utils;
 
 pub enum ModuleType {
     PMM,
@@ -35,32 +36,32 @@ pub enum PianoKey {
 pub enum Effect {
     None,
 
-    SetSpeed, // Axx
-    PositionJump, // Bxx
-    PatternBreak, // Cxx
-    VolumeSlide, // Dxx
-    PortamentoDown, // Exx
-    PortamentoUp, // Fxx
-    TonePortamento, // Gxx
-    Vibrato, // Hxx
-    Tremor, // Ixx
-    Arpeggio, // Jxx
-    VolumeSlideVibrato, // Kxx
-    VolumeSlideTonePortamento, // Lxx
-    SetChannelVolume, // Mxx
-    ChannelVolumeSlide, // Nxx
-    SampleOffset, // Oxx
-    PanningSlide, // Pxx
-    Retrigger, // Qxx
-    Tremolo, // Rxx
-    Special, // Sxx (this one contains like 20 other commands inside it)
-    Tempo, // Txx
-    FineVibrato, // Uxx
-    SetGlobalVolume, // Vxx
-    GlobalVolumeSlide, // Wxx
-    SetPanning, // Xxx
-    Panbrello, // Yxx
-    MidiMacro // Zxx
+    SetSpeed(u8), // Axx
+    PositionJump(u8), // Bxx
+    PatternBreak(u8), // Cxx
+    VolumeSlide(u8), // Dxx
+    PortamentoDown(u8), // Exx
+    PortamentoUp(u8), // Fxx
+    TonePortamento(u8), // Gxx
+    Vibrato(u8), // Hxx
+    Tremor(u8), // Ixx
+    Arpeggio(u8), // Jxx
+    VolumeSlideVibrato(u8), // Kxx
+    VolumeSlideTonePortamento(u8), // Lxx
+    SetChannelVolume(u8), // Mxx
+    ChannelVolumeSlide(u8), // Nxx
+    SampleOffset(u8), // Oxx
+    PanningSlide(u8), // Pxx
+    Retrigger(u8), // Qxx
+    Tremolo(u8), // Rxx
+    Special(u8), // Sxx (this one contains like 20 other commands inside it)
+    Tempo(u8), // Txx
+    FineVibrato(u8), // Uxx
+    SetGlobalVolume(u8), // Vxx
+    GlobalVolumeSlide(u8), // Wxx
+    SetPanning(u8), // Xxx
+    Panbrello(u8), // Yxx
+    MidiMacro(u8) // Zxx
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -72,26 +73,24 @@ pub struct Note {
 
     pub sample: Option<u8>,
     pub volume: Option<u8>,
-    pub effect: Effect,
-    pub effect_param: u8
+    pub effect: Effect
 }
 
 impl Default for Note {
     fn default() -> Self {
-        Self { initialized: false, key: PianoKey::None, octave: 0, sample: None, volume: None, effect: Effect::None, effect_param: 0 }
+        Self { initialized: false, key: PianoKey::None, octave: 0, sample: None, volume: None, effect: Effect::None }
     }
 }
 
 impl Note {
-    pub fn new(key: PianoKey, octave: u8, sample: Option<u8>, volume: Option<u8>, effect: Effect, effect_param: u8) -> Self {
+    pub fn new(key: PianoKey, octave: u8, sample: Option<u8>, volume: Option<u8>, effect: Effect) -> Self {
         Self {
             initialized: true,
             key,
             octave,
             sample,
             volume,
-            effect,
-            effect_param
+            effect
         }
     }
 }

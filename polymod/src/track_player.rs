@@ -171,21 +171,21 @@ impl<'a> TrackPlayer<'a> {
 
                 match note.effect {
                     Effect::None => {},
-                    Effect::SetSpeed => if self.current_tick == 0 { self.current_speed = note.effect_param },
-                    Effect::PositionJump => {
+                    Effect::SetSpeed(speed) => if self.current_tick == 0 { self.current_speed = speed },
+                    Effect::PositionJump(pos) => {
                         self.next_row = 0;
-                        self.next_order = note.effect_param as usize;
+                        self.next_order = pos as usize;
                         self.should_jump = true;
                     },
-                    Effect::PatternBreak => {
+                    Effect::PatternBreak(pos) => {
                         self.next_order = self.current_order + 1;
-                        self.next_row = note.effect_param as usize;
+                        self.next_row = pos as usize;
                         self.should_jump = true;
                     },
-                    Effect::VolumeSlide => {
+                    Effect::VolumeSlide(value) => {
                         // If the note parameter is 0, we just fetch the last one stored in memory.
                         // If the last parameter is also 0 then nothing happens.
-                        let mut vol_param = if note.effect_param == 0 { channel.vol_memory } else { note.effect_param };
+                        let mut vol_param = if value == 0 { channel.vol_memory } else { value };
                         channel.vol_memory = vol_param;
 
                         // Handle DFy and DxF, if 'F' is set then the volume slide only occurs on the first tick.
@@ -221,8 +221,8 @@ impl<'a> TrackPlayer<'a> {
                         channel.properties.volume = ((channel.note_volume as u32 * sample.global_volume as u32 * 64 * self.global_volume as u32) >> 18) as f64 / 128.0 * (self.track.mix_volume as f64 / u8::MAX as f64);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
-                    Effect::PortamentoDown => {
-                        let mut pitch_param = if note.effect_param == 0 { channel.pitch_memory } else { note.effect_param };
+                    Effect::PortamentoDown(value) => {
+                        let mut pitch_param = if value == 0 { channel.pitch_memory } else { value };
                         channel.pitch_memory = pitch_param;
 
                         if ((pitch_param & 0xF0) >= 0xE0 && self.current_tick != 0) || self.current_tick == 0 && (pitch_param & 0xF0) < 0xE0 {
@@ -240,8 +240,8 @@ impl<'a> TrackPlayer<'a> {
                         channel.properties.speed *= f64::powf(2.0, -4.0 * (pitch_param as f64 * multiplier) / 768.0);
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
-                    Effect::PortamentoUp => {
-                        let mut pitch_param = if note.effect_param == 0 { channel.pitch_memory } else { note.effect_param };
+                    Effect::PortamentoUp(value) => {
+                        let mut pitch_param = if value == 0 { channel.pitch_memory } else { value };
                         channel.pitch_memory = pitch_param;
 
                         if ((pitch_param & 0xF0) >= 0xE0 && self.current_tick != 0) || self.current_tick == 0 && (pitch_param & 0xF0) < 0xE0 {
@@ -267,9 +267,9 @@ impl<'a> TrackPlayer<'a> {
                     Effect::VolumeSlideTonePortamento => todo!(),
                     Effect::SetChannelVolume => todo!(),
                     Effect::ChannelVolumeSlide => todo!(),*/
-                    Effect::SampleOffset => {
+                    Effect::SampleOffset(offset) => {
                         if self.current_tick == 0 {
-                            let offset = if note.effect_param == 0 { channel.offset_memory } else { note.effect_param };
+                            let offset = if offset == 0 { channel.offset_memory } else { offset };
                             channel.offset_memory = offset;
 
                             if note.key != PianoKey::None {
@@ -280,33 +280,31 @@ impl<'a> TrackPlayer<'a> {
                     /*Effect::PanningSlide => todo!(),
                     Effect::Retrigger => todo!(),
                     Effect::Tremolo => todo!(),*/
-                    Effect::Special => {
-                        let param = note.effect_param;
-
-                        if param >= 0x80 && param <= 0x8F {
-                            channel.properties.panning = (param & 0xF) as f64 / 15.0;
+                    Effect::Special(cmd) => {
+                        if cmd >= 0x80 && cmd <= 0x8F {
+                            channel.properties.panning = (cmd & 0xF) as f64 / 15.0;
                             self.system.set_channel_properties(c, channel.properties).unwrap();
                         }
 
-                        if param >= 0xA0 && param <= 0xAF {
-                            channel.high_offset = (param & 0xF) as usize * 65536;
+                        if cmd >= 0xA0 && cmd <= 0xAF {
+                            channel.high_offset = (cmd & 0xF) as usize * 65536;
                         }
                     },
-                    Effect::Tempo => {
+                    Effect::Tempo(tempo) => {
                         // TODO: Tempo slides
-                        if note.effect_param > 0x20 && self.current_tick == 0 {
-                            self.set_tempo(note.effect_param);
+                        if tempo > 0x20 && self.current_tick == 0 {
+                            self.set_tempo(tempo);
                         }
                     },
                     //Effect::FineVibrato => todo!(),
-                    Effect::SetGlobalVolume => {
+                    Effect::SetGlobalVolume(vol) => {
                         // TODO: This has weird behaviour right now. When global volume is adjusted - all sample volumes must be
                         // adjusted too. Currently, this only affects new samples that are played.
-                        self.global_volume = note.effect_param
+                        self.global_volume = vol;
                     },
                     //Effect::GlobalVolumeSlide => todo!(),
-                    Effect::SetPanning => {
-                        channel.properties.panning = note.effect_param as f64 / 255.0;
+                    Effect::SetPanning(pan) => {
+                        channel.properties.panning = pan as f64 / 255.0;
                         self.system.set_channel_properties(c, channel.properties).unwrap();
                     },
                     /*Effect::Panbrello => todo!(),

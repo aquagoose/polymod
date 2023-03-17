@@ -172,7 +172,10 @@ fn main() {
 
     device.resume();
 
-    ctrlc::set_handler(move || { std::process::exit(0) }).unwrap();
+    ctrlc::set_handler(|| { 
+        println!();
+        std::process::exit(0)
+    }).unwrap();
 
     loop {
         std::thread::sleep(Duration::from_secs(5));

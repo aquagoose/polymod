@@ -222,7 +222,7 @@ impl Track {
 
                     let mut key = PianoKey::None;
                     let mut octave = 0;
-                    let effect = unsafe { std::mem::transmute(effect) };
+                    let effect = crate::utils::it_utils::get_effect(effect, effect_param);
 
                     match note {
                         255 => key = PianoKey::NoteOff,
@@ -234,7 +234,7 @@ impl Track {
                         }
                     }
 
-                    let note = Note::new(key, octave, instrument, volume, effect, effect_param);
+                    let note = Note::new(key, octave, instrument, volume, effect);
                     super::log(format!("Row: {r}, Channel: {channel}, Pattern: {i}, Note: {:?}", note));
                     pattern.set_note(channel as u16, r, note);
 
@@ -342,22 +342,22 @@ fn calculate_length(patterns: &Vec<Pattern>, orders: &Vec<u8>, init_tempo: u8, i
                 let note = pattern.notes.get(channel as usize, row as usize);
 
                 match note.effect {
-                    Effect::SetSpeed => {
-                        curr_speed = note.effect_param;
+                    Effect::SetSpeed(speed) => {
+                        curr_speed = speed;
                         duration = (2.5 / curr_tempo as f64) * curr_speed as f64;
                     },
-                    Effect::Tempo => {
-                        curr_tempo = note.effect_param;
+                    Effect::Tempo(tempo) => {
+                        curr_tempo = tempo;
                         duration = (2.5 / curr_tempo as f64) * curr_speed as f64;
                     },
 
-                    Effect::PatternBreak => {
+                    Effect::PatternBreak(pos) => {
                         length += duration;
                         break 'rowcount
                     },
 
-                    Effect::PositionJump => {
-                        if note.effect_param as usize <= order {
+                    Effect::PositionJump(pos) => {
+                        if pos as usize <= order {
                             return (length, seek_table);
                         } else {
                             length += duration;
